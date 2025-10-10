@@ -143,9 +143,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
             {/* User Menu */}
             <div className="flex items-center space-x-3">
-              <div className="hidden sm:block text-right">
+            <div className="hidden sm:block text-right">
                 <p className="text-sm font-medium">{profile?.full_name}</p>
-                <p className="text-xs text-muted-foreground">{profile?.unit}</p>
               </div>
               
               <div className="neu-raised p-1 rounded-full">

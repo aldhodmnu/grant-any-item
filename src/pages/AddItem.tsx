@@ -233,7 +233,7 @@ export default function AddItem() {
     if (error) {
       console.error('Error loading item:', error);
       if (error.code === 'PGRST116') {
-        toast.error("Barang tidak ditemukan");
+        showToast.error("Barang tidak ditemukan");
         navigate("/manage-inventory");
         return null;
       }
@@ -333,7 +333,7 @@ export default function AddItem() {
         // Handle new item for owners - moved to separate effect
       } catch (error) {
         console.error("Error loading data:", error);
-        toast.error("Gagal memuat data.");
+        showToast.error("Gagal memuat data.");
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -347,7 +347,7 @@ export default function AddItem() {
       if (isMounted) {
         setLoading(false);
         console.log('Loading timeout reached');
-        toast.error("Loading timeout. Silakan refresh halaman.");
+        showToast.error("Loading timeout. Silakan refresh halaman.");
       }
     }, 15000); // 15 detik timeout
 
@@ -450,7 +450,7 @@ export default function AddItem() {
     console.log('🚀 Submit started with formData:', formData);
     
     if (!validateForm()) {
-      toast.error("Mohon lengkapi semua field yang diperlukan");
+      showToast.error("Mohon lengkapi semua field yang diperlukan");
       return;
     }
     
@@ -478,7 +478,7 @@ export default function AddItem() {
         if (dept && dept.id && uuidRegex.test(dept.id)) {
           console.log('🔧 Attempting to fix department_id with manual lookup:', dept.id);
           setFormData(prev => ({ ...prev, department_id: dept.id }));
-          toast.error('Format departemen diperbaiki, silakan coba lagi.');
+          showToast.error('Format departemen diperbaiki, silakan coba lagi.');
           return;
         } else {
           console.error('🔧 ❌ Manual lookup failed or invalid UUID');
@@ -496,7 +496,7 @@ export default function AddItem() {
               } else if (deptRow && deptRow.id && uuidRegex.test(deptRow.id)) {
                 console.log('🔧 ✅ Fallback query success, setting department_id:', deptRow.id);
                 setFormData(prev => ({ ...prev, department_id: deptRow.id }));
-                toast.error('Format departemen diperbaiki (fallback), silakan klik simpan lagi.');
+                showToast.error('Format departemen diperbaiki (fallback), silakan klik simpan lagi.');
                 return;
               } else {
                 console.error('🔧 ❌ Fallback query did not return valid UUID');
@@ -508,7 +508,7 @@ export default function AddItem() {
         }
       }
       
-      toast.error('Format departemen tidak valid. Silakan refresh halaman.');
+      showToast.error('Format departemen tidak valid. Silakan refresh halaman.');
       return;
     }
     
@@ -520,7 +520,7 @@ export default function AddItem() {
         const uuidOk = uuidRegex.test(formData.department_id);
         if (!uuidOk) {
           console.log('🛑 Safety check failed: department_id masih invalid sebelum DB operation');
-          toast.error('Departemen belum valid. Coba lagi.');
+          showToast.error('Departemen belum valid. Coba lagi.');
           setSaving(false);
           return;
         }
@@ -550,7 +550,7 @@ export default function AddItem() {
 
         // Validasi: pastikan kapasitas baru cukup untuk borrowed yang masih aktif
         if (formData.quantity - newDamaged - newLost < borrowedQuantity) {
-          toast.error("Total - (rusak+hilang) kurang dari jumlah yang sedang dipinjam");
+          showToast.error("Total - (rusak+hilang) kurang dari jumlah yang sedang dipinjam");
           setSaving(false);
           return;
         }
@@ -580,18 +580,18 @@ export default function AddItem() {
           id,
           'updated',
           oldItem,
-          itemData,
+          itemData as unknown as Record<string, unknown>,
           `Item diperbarui. Quantity berubah dari ${oldItem?.quantity} menjadi ${formData.quantity}. Available quantity: ${newAvailableQuantity}`
         );
 
-        toast.success("Barang berhasil diperbarui");
+        showToast.success("Barang berhasil diperbarui");
       } else {
         // Mode Tambah Baru
         const damaged = formData.damaged_quantity ?? 0;
         const lost = formData.lost_quantity ?? 0;
         const baseAvailable = formData.quantity - damaged - lost;
         if (baseAvailable < 0) {
-          toast.error("(Rusak + Hilang) melebihi total");
+          showToast.error("(Rusak + Hilang) melebihi total");
           setSaving(false);
           return;
         }
@@ -627,7 +627,7 @@ export default function AddItem() {
           console.error('🚨 CRITICAL: About to insert invalid department UUID!');
           console.error('🚨 Department ID:', itemData.department_id);
           console.error('🚨 Aborting insert to prevent error');
-          toast.error('Error: Format departemen tidak valid');
+          showToast.error('Error: Format departemen tidak valid');
           return;
         }
         
@@ -635,7 +635,7 @@ export default function AddItem() {
           console.error('🚨 CRITICAL: About to insert invalid category UUID!');
           console.error('🚨 Category ID:', itemData.category_id);
           console.error('🚨 Aborting insert to prevent error');
-          toast.error('Error: Format kategori tidak valid');
+          showToast.error('Error: Format kategori tidak valid');
           return;
         }
 
@@ -658,17 +658,17 @@ export default function AddItem() {
           newItem.id,
           'created',
           {},
-          itemData,
+          itemData as unknown as Record<string, unknown>,
           `Item baru ditambahkan dengan quantity ${formData.quantity}`
         );
 
-        toast.success("Barang berhasil ditambahkan");
+        showToast.success("Barang berhasil ditambahkan");
       }
       
       navigate("/manage-inventory");
     } catch (error) {
       console.error("Error saving item:", error);
-      toast.error(isEditMode ? "Gagal memperbarui barang" : "Gagal menambahkan barang");
+      showToast.error(isEditMode ? "Gagal memperbarui barang" : "Gagal menambahkan barang");
     } finally {
       setSaving(false);
     }
@@ -685,7 +685,7 @@ export default function AddItem() {
         const damaged = field === 'damaged_quantity' ? Number(value) : (newData.damaged_quantity ?? 0);
         const lost = field === 'lost_quantity' ? Number(value) : (newData.lost_quantity ?? 0);
         if (damaged + lost > total) {
-          toast.warning("Rusak + Hilang melebihi Total");
+          showToast.warning("Rusak + Hilang melebihi Total");
         }
       }
       console.log(`📝 Updated formData:`, newData);

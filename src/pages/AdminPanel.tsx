@@ -82,20 +82,23 @@ export default function AdminPanel() {
       setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select(`
-          id,
-          full_name,
-          user_roles (
-            role,
-            department_id,
-            departments (
-              name
-            )
-          )
-        `);
+        .select("id, full_name");
 
       if (error) throw error;
-      setUsers(data || []);
+      
+      // Fetch user roles separately
+      const usersWithRoles = await Promise.all((data || []).map(async (user) => {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role, department")
+          .eq("user_id", user.id);
+        return {
+          ...user,
+          user_roles: roles || []
+        };
+      }));
+      
+      setUsers(usersWithRoles as any);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Gagal memuat data user");
