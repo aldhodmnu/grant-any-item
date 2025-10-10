@@ -3,35 +3,78 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Navigation from "./components/Navigation";
-import Dashboard from "./pages/Dashboard";
-import Items from "./pages/Items";
-import Requests from "./pages/Requests";
+import { useState, useEffect } from "react";
+import PWASplash from "./components/PWASplash";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import Home from "./pages/Home";
+import Departments from "./pages/Departments";
+import Inventory from "./pages/Inventory";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Orders from "./pages/Orders";
+import RequestDetail from "./pages/RequestDetail";
 import Profile from "./pages/Profile";
+import Realtime from "./pages/Realtime";
+import OwnerInbox from "./pages/OwnerInbox";
+import HeadmasterInbox from "./pages/HeadmasterInbox";
+import ReviewHistory from "./pages/ReviewHistory";
+import ManageInventory from "./pages/ManageInventory";
+import AddItem from "./pages/AddItem";
+import BulkUploadItems from "./pages/BulkUploadItems";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import VerifyLetter from "./pages/VerifyLetter";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Navigation />
-        <div className="md:ml-64 pt-16 md:pt-0">
+const App = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (showSplash) {
+    return <PWASplash onFinish={() => setShowSplash(false)} />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/items" element={<Items />} />
-            <Route path="/requests" element={<Requests />} />
-            <Route path="/profile" element={<Profile />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
+            {/* Public Routes */}
+            <Route path="/landing" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/verify/:id" element={<VerifyLetter />} />
+          
+          {/* Protected Routes - New Mobile-First Navigation */}
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+          <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+          <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+          <Route path="/orders/:requestId" element={<ProtectedRoute><RequestDetail /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/review-history" element={<ProtectedRoute><ReviewHistory /></ProtectedRoute>} />
+          <Route path="/realtime" element={<ProtectedRoute><Realtime /></ProtectedRoute>} />
+          
+          {/* Admin/Owner Routes */}
+          <Route path="/owner-inbox" element={<ProtectedRoute><OwnerInbox /></ProtectedRoute>} />
+          <Route path="/headmaster-inbox" element={<ProtectedRoute><HeadmasterInbox /></ProtectedRoute>} />
+          <Route path="/manage-inventory" element={<ProtectedRoute><ManageInventory /></ProtectedRoute>} />
+          <Route path="/add-item" element={<ProtectedRoute><AddItem /></ProtectedRoute>} />
+          <Route path="/edit-item/:id" element={<ProtectedRoute><AddItem /></ProtectedRoute>} />
+          <Route path="/bulk-upload-items" element={<ProtectedRoute><BulkUploadItems /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
