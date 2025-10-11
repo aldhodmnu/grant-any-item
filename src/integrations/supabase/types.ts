@@ -29,6 +29,7 @@ export type Database = {
           id: string
           letter_generated_at: string | null
           letter_number: string | null
+          letter_viewed_at: string | null
           location_usage: string | null
           notes: string | null
           owner_notes: string | null
@@ -58,6 +59,7 @@ export type Database = {
           id?: string
           letter_generated_at?: string | null
           letter_number?: string | null
+          letter_viewed_at?: string | null
           location_usage?: string | null
           notes?: string | null
           owner_notes?: string | null
@@ -87,6 +89,7 @@ export type Database = {
           id?: string
           letter_generated_at?: string | null
           letter_number?: string | null
+          letter_viewed_at?: string | null
           location_usage?: string | null
           notes?: string | null
           owner_notes?: string | null

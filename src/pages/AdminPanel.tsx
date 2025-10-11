@@ -133,19 +133,23 @@ export default function AdminPanel() {
         .from("departments")
         .insert([{
           name: newDeptName.trim(),
-          description: newDeptDesc.trim() || null
+          description: newDeptDesc.trim() || null,
+          code: null // Explicitly set code as null to avoid unique constraint issues
         }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating department:", error);
+        throw error;
+      }
       
       toast.success("Department berhasil dibuat");
       setNewDeptName("");
       setNewDeptDesc("");
       setDeptDialogOpen(false);
       fetchDepartments();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating department:", error);
-      toast.error("Gagal membuat department");
+      toast.error(error?.message || "Gagal membuat department");
     }
   };
 
