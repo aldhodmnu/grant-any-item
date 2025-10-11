@@ -157,13 +157,19 @@ export default function BulkUploadItems() {
     const key = name.toLowerCase();
     if (categoryMap[key]) return categoryMap[key];
 
-    // Buat kategori baru jika belum ada (owner -> kategori dept, admin -> global)
-    const insertData: { name: string; department?: string } = { name };
-    if (hasRole('owner') && !hasRole('admin') && getUserDepartment()) {
-      insertData.department = getUserDepartment();
+    // Buat kategori baru jika belum ada (tanpa kolom department karena tidak ada di schema)
+    const { data: newCat, error } = await supabase
+      .from('categories')
+      .insert([{ name }])
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Kategori gagal dibuat', error);
+      toast.error('Gagal membuat kategori. Pastikan Anda punya izin atau minta admin membuat kategori tersebut.');
+      return null;
     }
-    const { data: newCat, error } = await supabase.from('categories').insert([insertData]).select().single();
-    if (error) { console.error('Kategori gagal dibuat', error); return null; }
+
     setCategoryMap(prev => ({ ...prev, [key]: newCat.id }));
     return newCat.id;
   };
