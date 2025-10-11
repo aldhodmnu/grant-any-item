@@ -97,11 +97,22 @@ export default function BulkUploadItems() {
       for (const raw of json) {
         const tmp: Record<string, unknown> = {};
         Object.keys(raw).forEach(k => { tmp[normalizeHeader(k)] = (raw as Record<string, unknown>)[k]; });
-        if (!tmp['name'] || !tmp['category_name'] || !tmp['quantity']) continue;
-        const quantity = Number(tmp['quantity']);
+        
+        // Map header columns correctly
+        const nama = tmp['nama alat'] || tmp['name'];
+        const kode = tmp['kode produk(optional)'] || tmp['kode produk'] || tmp['code(optional)'] || tmp['code'];
+        const desc = tmp['description(optional)'] || tmp['description'];
+        const kategori = tmp['kategori'] || tmp['category_name'];
+        const jumlah = tmp['jumlah'] || tmp['quantity'];
+        const lokasi = tmp['lokasi(optional)'] || tmp['lokasi'] || tmp['location(optional)'] || tmp['location'];
+        const status = tmp['status alat(available, reserved, borrowed, maintenance, damaged, lost)(optional)'] || tmp['status alat'] || tmp['status(optional)'] || tmp['status'];
+        
+        if (!nama || !kategori || !jumlah) continue;
+        const quantity = Number(jumlah);
         if (Number.isNaN(quantity) || quantity <= 0) continue;
-        let code = (tmp['code(optional)'] as string | undefined)?.toString().trim();
-        const nameStr = String(tmp['name']);
+        
+        let code = kode?.toString().trim();
+        const nameStr = String(nama);
         if (!code) {
           code = generateCode(nameStr);
           genCodes[nameStr+quantity] = code;
@@ -109,11 +120,11 @@ export default function BulkUploadItems() {
         rows.push({
           name: nameStr.trim(),
           code,
-          description: (tmp['description(optional)'] as string | undefined)?.toString().trim() || '',
-          category_name: String(tmp['category_name']).trim(),
+          description: desc?.toString().trim() || '',
+          category_name: String(kategori).trim(),
           quantity,
-            location: (tmp['location(optional)'] as string | undefined)?.toString().trim() || '',
-          status: (tmp['status(optional)'] as string | undefined)?.toString().trim().toLowerCase() || 'available'
+          location: lokasi?.toString().trim() || '',
+          status: status?.toString().trim().toLowerCase() || 'available'
         });
       }
 
