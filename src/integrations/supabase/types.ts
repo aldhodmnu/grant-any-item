@@ -16,10 +16,13 @@ export type Database = {
     Tables: {
       borrow_requests: {
         Row: {
+          actual_return_date: string | null
+          approval_path: Database["public"]["Enums"]["approval_path"] | null
           borrower_id: string
           completed_at: string | null
           created_at: string
           end_date: string
+          expected_return_date: string | null
           headmaster_approved_at: string | null
           headmaster_approved_by: string | null
           headmaster_notes: string | null
@@ -27,6 +30,7 @@ export type Database = {
           letter_generated_at: string | null
           letter_number: string | null
           location_usage: string | null
+          notes: string | null
           owner_notes: string | null
           owner_reviewed_at: string | null
           owner_reviewed_by: string | null
@@ -34,16 +38,20 @@ export type Database = {
           pic_name: string
           purpose: string
           rejection_reason: string | null
+          requested_date: string | null
           start_date: string
           started_at: string | null
           status: Database["public"]["Enums"]["request_status"]
           updated_at: string
         }
         Insert: {
+          actual_return_date?: string | null
+          approval_path?: Database["public"]["Enums"]["approval_path"] | null
           borrower_id: string
           completed_at?: string | null
           created_at?: string
           end_date: string
+          expected_return_date?: string | null
           headmaster_approved_at?: string | null
           headmaster_approved_by?: string | null
           headmaster_notes?: string | null
@@ -51,6 +59,7 @@ export type Database = {
           letter_generated_at?: string | null
           letter_number?: string | null
           location_usage?: string | null
+          notes?: string | null
           owner_notes?: string | null
           owner_reviewed_at?: string | null
           owner_reviewed_by?: string | null
@@ -58,16 +67,20 @@ export type Database = {
           pic_name: string
           purpose: string
           rejection_reason?: string | null
+          requested_date?: string | null
           start_date: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["request_status"]
           updated_at?: string
         }
         Update: {
+          actual_return_date?: string | null
+          approval_path?: Database["public"]["Enums"]["approval_path"] | null
           borrower_id?: string
           completed_at?: string | null
           created_at?: string
           end_date?: string
+          expected_return_date?: string | null
           headmaster_approved_at?: string | null
           headmaster_approved_by?: string | null
           headmaster_notes?: string | null
@@ -75,6 +88,7 @@ export type Database = {
           letter_generated_at?: string | null
           letter_number?: string | null
           location_usage?: string | null
+          notes?: string | null
           owner_notes?: string | null
           owner_reviewed_at?: string | null
           owner_reviewed_by?: string | null
@@ -82,6 +96,7 @@ export type Database = {
           pic_name?: string
           purpose?: string
           rejection_reason?: string | null
+          requested_date?: string | null
           start_date?: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["request_status"]
@@ -134,6 +149,7 @@ export type Database = {
       }
       departments: {
         Row: {
+          code: string | null
           contact_person: string | null
           created_at: string
           description: string | null
@@ -141,6 +157,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          code?: string | null
           contact_person?: string | null
           created_at?: string
           description?: string | null
@@ -148,6 +165,7 @@ export type Database = {
           name: string
         }
         Update: {
+          code?: string | null
           contact_person?: string | null
           created_at?: string
           description?: string | null
@@ -268,6 +286,7 @@ export type Database = {
           id: string
           phone: string | null
           unit: string | null
+          unit_kerja: string | null
           updated_at: string
         }
         Insert: {
@@ -277,6 +296,7 @@ export type Database = {
           id: string
           phone?: string | null
           unit?: string | null
+          unit_kerja?: string | null
           updated_at?: string
         }
         Update: {
@@ -286,6 +306,7 @@ export type Database = {
           id?: string
           phone?: string | null
           unit?: string | null
+          unit_kerja?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -345,6 +366,7 @@ export type Database = {
         Row: {
           created_at: string
           department: string | null
+          department_id: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -352,6 +374,7 @@ export type Database = {
         Insert: {
           created_at?: string
           department?: string | null
+          department_id?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -359,11 +382,20 @@ export type Database = {
         Update: {
           created_at?: string
           department?: string | null
+          department_id?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -380,6 +412,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "owner" | "headmaster" | "borrower"
+      approval_path: "direct" | "via_headmaster"
       item_status:
         | "available"
         | "reserved"
@@ -524,6 +557,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "owner", "headmaster", "borrower"],
+      approval_path: ["direct", "via_headmaster"],
       item_status: [
         "available",
         "reserved",
