@@ -36,7 +36,7 @@ import { getOptimizedCategories, getOptimizedDepartments, clearRequestCache } fr
 interface Category {
   id: string;
   name: string;
-  department?: string;
+  description?: string;
 }
 
 interface Department {
@@ -923,19 +923,7 @@ export default function AddItem() {
                       <SelectContent>
                         {categories.map(category => (
                           <SelectItem key={category.id} value={category.id}>
-                            <div className="flex items-center gap-2">
-                              <span>{category.name}</span>
-                              {category.department && (
-                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200">
-                                  {category.department}
-                                </Badge>
-                              )}
-                              {!category.department && (
-                                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-500 border-gray-200">
-                                  Global
-                                </Badge>
-                              )}
-                            </div>
+                            {category.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

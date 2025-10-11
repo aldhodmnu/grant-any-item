@@ -105,9 +105,9 @@ export default function Inventory() {
       
       // Get all items with their base quantities
       const [itemsRes, categoriesRes, departmentsRes] = await Promise.all([
-        supabase.from("items").select("*, categories(name), departments(name)").order("name"),
-        supabase.from("categories").select("*"),
-        supabase.from("departments").select("*")
+        supabase.from("items").select("*, categories(id, name, description), departments(id, name, description)").order("name"),
+        supabase.from("categories").select("id, name, description"),
+        supabase.from("departments").select("id, name, description, code")
       ]);
 
       // Get active/approved requests to calculate borrowed items

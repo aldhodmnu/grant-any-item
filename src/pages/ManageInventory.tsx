@@ -126,7 +126,7 @@ export default function ManageInventory() {
         // Ambil batch pertama
         let query = supabase
           .from('items')
-          .select(`*, categories(id,name), departments(id,name)`) 
+          .select(`*, categories(id, name, description), departments(id, name, description, code)`) 
           .order('created_at', { ascending: false })
           .range(0, pageSize - 1);
         if (deptId) query = query.eq('department_id', deptId);
@@ -160,7 +160,7 @@ export default function ManageInventory() {
       const deptId = isOwnerOnly && userDepartment ? (await supabase.from('departments').select('id').eq('name', userDepartment).single()).data?.id : undefined;
       let query = supabase
         .from('items')
-        .select(`*, categories(id,name), departments(id,name)`) 
+        .select(`*, categories(id, name, description), departments(id, name, description, code)`) 
         .order('created_at', { ascending: false })
         .range(from, to);
       if (deptId) query = query.eq('department_id', deptId);
