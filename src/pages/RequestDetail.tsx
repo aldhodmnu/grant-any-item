@@ -22,7 +22,7 @@ import {
   Eye
 } from "lucide-react";
 import { format } from "date-fns";
-import { id } from "date-fns/locale";
+import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { startLoanProcess, completeLoanProcess } from "@/lib/loanManagement";
@@ -79,13 +79,16 @@ interface RequestDetail {
 }
 
 export default function RequestDetail() {
-  const { requestId } = useParams<{ requestId: string }>();
+  const { requestId, id } = useParams<{ requestId?: string; id?: string }>();
   const navigate = useNavigate();
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLetterPreview, setShowLetterPreview] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
+
+  // Get the actual request ID from either parameter
+  const actualRequestId = requestId || id;
 
   // Pastikan QR dibuat saat dialog dibuka jika belum tersedia
   useEffect(() => {
@@ -128,7 +131,7 @@ export default function RequestDetail() {
             owner_reviewer:profiles!borrow_requests_owner_reviewed_by_fkey(full_name),
             headmaster_approver:profiles!borrow_requests_headmaster_approved_by_fkey(full_name)
           `)
-          .eq("id", requestId)
+          .eq("id", actualRequestId)
           .single();
 
         if (error) throw error;
@@ -160,14 +163,14 @@ export default function RequestDetail() {
       }
     };
 
-    if (requestId) {
+    if (actualRequestId) {
       fetchRequestDetail();
     }
     
     return () => {
       isMounted = false;
     };
-  }, [requestId, navigate]);
+  }, [actualRequestId, navigate]);
 
   const getStatusInfo = (status: string) => {
     const statusMap: Record<string, { label: string; color: string; icon: typeof FileText }> = {
@@ -184,7 +187,7 @@ export default function RequestDetail() {
   };
 
   const markLetterAsViewed = async () => {
-    if (!request || !requestId) return;
+    if (!request || !actualRequestId) return;
 
     try {
       const { error } = await supabase
@@ -192,7 +195,7 @@ export default function RequestDetail() {
         // cast any agar tidak bentrok dengan generated types yang mungkin belum memuat kolom baru
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({ letter_viewed_at: new Date().toISOString() } as any)
-        .eq("id", requestId);
+        .eq("id", actualRequestId);
 
       if (error) throw error;
     } catch (error) {
@@ -569,7 +572,7 @@ export default function RequestDetail() {
               <div className="flex-1">
                 <p className="font-semibold text-gray-900 mb-1">Periode Peminjaman</p>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  {format(new Date(request.start_date), "dd MMM yyyy", { locale: id })} - {format(new Date(request.end_date), "dd MMM yyyy", { locale: id })}
+                  {format(new Date(request.start_date), "dd MMM yyyy", { locale: idLocale })} - {format(new Date(request.end_date), "dd MMM yyyy", { locale: idLocale })}
                 </p>
               </div>
             </div>

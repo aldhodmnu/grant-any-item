@@ -26,6 +26,7 @@ import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import VerifyLetter from "./pages/VerifyLetter";
+import PublicRequestDetail from "./pages/PublicRequestDetail";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,8 @@ const App = () => {
             <Route path="/landing" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/verify/:id" element={<VerifyLetter />} />
+          <Route path="/realtime" element={<Realtime />} />
+          <Route path="/public/request/:id" element={<PublicRequestDetail />} />
           
           {/* Protected Routes - New Mobile-First Navigation */}
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
@@ -58,7 +61,6 @@ const App = () => {
           <Route path="/orders/:requestId" element={<ProtectedRoute><RequestDetail /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/review-history" element={<ProtectedRoute><ReviewHistory /></ProtectedRoute>} />
-          <Route path="/realtime" element={<ProtectedRoute><Realtime /></ProtectedRoute>} />
           
           {/* Admin/Owner Routes */}
           <Route path="/owner-inbox" element={<ProtectedRoute><OwnerInbox /></ProtectedRoute>} />

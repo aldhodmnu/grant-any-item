@@ -47,3 +47,11 @@
   background-size: cover;
   background-position: center;
 }
+
+/* Local fallback background for realtime (user provided) */
+.realtime-local-bg {
+  background-image: url('/bgpp.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
