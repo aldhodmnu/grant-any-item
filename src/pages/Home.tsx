@@ -28,9 +28,21 @@ export default function Home() {
     activeLoans: 0,
     totalDepartments: 0,
   });
-  const [userProfile, setUserProfile] = useState<any>(null);
+  interface UserProfile { full_name?: string; unit?: string; email?: string }
+  interface ActivityItem { id: string; status: string; created_at: string; purpose: string; request_items?: { item?: { name?: string } }[] }
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
+  const [unreadApproved, setUnreadApproved] = useState(0);
+  const [pendingOwner, setPendingOwner] = useState(0);
+  const [pendingHeadmaster, setPendingHeadmaster] = useState(0);
+  interface SimpleRequestCard { id: string; purpose: string; created_at: string; start_date?: string; end_date?: string; borrower?: { full_name?: string; unit?: string } }
+  const [pendingOwnerList, setPendingOwnerList] = useState<SimpleRequestCard[]>([]);
+  const [pendingHeadmasterList, setPendingHeadmasterList] = useState<SimpleRequestCard[]>([]);
+  const [approvedNotActive, setApprovedNotActive] = useState<SimpleRequestCard[]>([]);
+  const [activating, setActivating] = useState<string | null>(null);
+  // Toggle untuk menampilkan grid statistik lama (diminta disembunyikan, tapi tidak dihapus dari kode)
+  const [showStats, setShowStats] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -69,7 +81,72 @@ export default function Home() {
           });
         }
 
+        // Fetch unread approved letters (surat sudah approved tapi belum dilihat)
+        const { count: unreadApprovedCount } = await supabase
+          .from('borrow_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('borrower_id', user.id)
+          .eq('status', 'approved')
+          .is('letter_viewed_at', null);
+
+        if (isMounted) setUnreadApproved(unreadApprovedCount || 0);
+
+        // Pending approvals untuk owner/headmaster
+        let ownerPending = 0;
+        let headmasterPending = 0;
+        const roleSet = new Set((userRoles));
+        if (roleSet.has('owner')) {
+          const { count: ownerCount } = await supabase
+            .from('borrow_requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending_owner');
+          ownerPending = ownerCount || 0;
+        }
+        if (roleSet.has('headmaster')) {
+          const { count: hmCount } = await supabase
+            .from('borrow_requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending_headmaster');
+          headmasterPending = hmCount || 0;
+        }
+        if (isMounted) {
+          setPendingOwner(ownerPending);
+          setPendingHeadmaster(headmasterPending);
+        }
+
         // Fetch recent activity
+          // Fetch list pending owner (ringkas, max 5)
+          if (roleSet.has('owner')) {
+            const { data: ownerPend } = await supabase
+              .from('borrow_requests')
+              .select(`id, purpose, created_at, borrower:profiles!borrow_requests_borrower_id_fkey(full_name, unit)`)
+              .eq('status', 'pending_owner')
+              .order('created_at', { ascending: true })
+              .limit(5);
+            if (isMounted) setPendingOwnerList(ownerPend || []);
+          } else if (isMounted) setPendingOwnerList([]);
+
+          // Fetch list pending headmaster
+          if (roleSet.has('headmaster')) {
+            const { data: hmPend } = await supabase
+              .from('borrow_requests')
+              .select(`id, purpose, created_at, borrower:profiles!borrow_requests_borrower_id_fkey(full_name, unit)`)
+              .eq('status', 'pending_headmaster')
+              .order('created_at', { ascending: true })
+              .limit(5);
+            if (isMounted) setPendingHeadmasterList(hmPend || []);
+          } else if (isMounted) setPendingHeadmasterList([]);
+
+          // Fetch approved belum active (borrower) → user bisa diminta mulai (owner aktifkan, tapi borrower lihat daftar menunggu aktivasi)
+          const { data: apprNotActive } = await supabase
+            .from('borrow_requests')
+            .select(`id, purpose, created_at, start_date, end_date, borrower_id, borrower:profiles!borrow_requests_borrower_id_fkey(full_name, unit)`) 
+            .eq('status', 'approved')
+            .order('created_at', { ascending: true })
+            .limit(5);
+          if (isMounted) setApprovedNotActive(apprNotActive || []);
+
+          // Fetch recent activity
         const { data: activityData } = await supabase
           .from("borrow_requests")
           .select(`
@@ -84,7 +161,15 @@ export default function Home() {
           .limit(3);
 
         if (isMounted && activityData) {
-          setRecentActivity(activityData);
+          interface RawActivity { id: string; status: string; created_at: string; purpose: string; request_items?: { item?: { name?: string } }[] }
+          const normalized: ActivityItem[] = (activityData as RawActivity[]).map(a => ({
+            id: a.id,
+            status: a.status,
+            created_at: a.created_at,
+            purpose: a.purpose,
+            request_items: a.request_items?.map(ri => ({ item: { name: ri.item?.name } })) || []
+          }));
+          setRecentActivity(normalized);
         }
       } catch (error) {
         console.error("Error loading home data:", error);
@@ -96,7 +181,8 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, []); // Only run once on mount
+  // Depend on userRoles karena kita hitung pending role-based; gunakan guard agar tidak loop
+  }, [userRoles]);
 
 
 
@@ -206,71 +292,239 @@ export default function Home() {
 
       {/* Enhanced Content dengan spacing yang lebih baik */}
       <div className="px-4 py-8 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
+        {/* Section Notifikasi Cepat */}
+        <div className="space-y-6">
+          {/* Pending Owner List */}
+          {userRoles.includes('owner') && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-800 tracking-wide">Butuh Review (Owner)</h2>
+                <Link to="/owner-inbox" className="text-xs text-primary hover:underline">Lihat Semua</Link>
+              </div>
+              {pendingOwnerList.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Tidak ada permintaan menunggu.</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingOwnerList.map(r => (
+                    <Card key={r.id} className="neu-flat border-0 hover:neu-raised transition-all">
+                      <CardContent className="p-3 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-600 font-semibold text-xs">
+                          {r.borrower?.full_name?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800 truncate">{r.purpose}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{r.borrower?.full_name} • {r.borrower?.unit || '-'}</p>
+                        </div>
+                        <Link to={`/request/${r.id}`} className="text-[10px] text-primary font-medium hover:underline">Detail</Link>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pending Headmaster List */}
+          {userRoles.includes('headmaster') && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-800 tracking-wide">Butuh Tanda Tangan (Kepsek)</h2>
+                <Link to="/headmaster-inbox" className="text-xs text-primary hover:underline">Lihat Semua</Link>
+              </div>
+              {pendingHeadmasterList.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Tidak ada permintaan menunggu.</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingHeadmasterList.map(r => (
+                    <Card key={r.id} className="neu-flat border-0 hover:neu-raised transition-all">
+                      <CardContent className="p-3 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-indigo-600/10 flex items-center justify-center text-indigo-600 font-semibold text-xs">
+                          {r.borrower?.full_name?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800 truncate">{r.purpose}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{r.borrower?.full_name} • {r.borrower?.unit || '-'}</p>
+                        </div>
+                        <Link to={`/request/${r.id}`} className="text-[10px] text-primary font-medium hover:underline">Detail</Link>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Approved Belum Active */}
+          {approvedNotActive.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-800 tracking-wide">Menunggu Aktivasi Peminjaman</h2>
+                <Link to="/orders" className="text-xs text-primary hover:underline">Lihat Semua</Link>
+              </div>
+              <div className="space-y-3">
+                {approvedNotActive.map(r => (
+                  <Card key={r.id} className="neu-flat border-0 hover:neu-raised transition-all">
+                    <CardContent className="p-3 flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-green-600/10 flex items-center justify-center text-green-600 font-semibold text-xs">
+                        {r.borrower?.full_name?.charAt(0) || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{r.purpose}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">Periode: {new Date(r.start_date).toLocaleDateString('id-ID', { day:'2-digit', month:'short' })} - {new Date(r.end_date).toLocaleDateString('id-ID', { day:'2-digit', month:'short' })}</p>
+                      </div>
+                      {userRoles.includes('owner') ? (
+                        <button
+                          disabled={activating === r.id}
+                          onClick={async () => {
+                            try {
+                              setActivating(r.id);
+                              const { error } = await supabase
+                                .from('borrow_requests')
+                                .update({ status: 'active', activated_at: new Date().toISOString() })
+                                .eq('id', r.id)
+                                .eq('status', 'approved');
+                              if (!error) {
+                                setApprovedNotActive(prev => prev.filter(x => x.id !== r.id));
+                              }
+                            } finally {
+                              setActivating(null);
+                            }
+                          }}
+                          className="text-[10px] px-2 py-1 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                        >{activating === r.id ? 'Aktif...' : 'Mulai'}</button>
+                      ) : (
+                        <Link to={`/request/${r.id}`} className="text-[10px] text-primary font-medium hover:underline">Detail</Link>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Aksi Cepat tetap dipertahankan */}
         {/* Enhanced Stats Grid dengan gap yang lebih besar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
-                <Package className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalItems}</div>
-              <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Alat Tersedia</div>
-            </CardContent>
-          </Card>
+          {(unreadApproved > 0 || pendingOwner > 0 || pendingHeadmaster > 0) && (
+            <div className="space-y-3">
+              {unreadApproved > 0 && (
+                <Card className="border-0 shadow-sm bg-green-50/80 neu-flat">
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-green-600 text-white flex items-center justify-center font-bold text-sm">{unreadApproved}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-green-800">Surat Disetujui</p>
+                      <p className="text-xs text-green-700">{unreadApproved} pengajuan Anda sudah disetujui dan siap diunduh.</p>
+                    </div>
+                    <Link to="/orders"><Button size="sm" className="bg-green-600 hover:bg-green-700 text-white rounded-lg">Lihat</Button></Link>
+                  </CardContent>
+                </Card>
+              )}
+              {pendingOwner > 0 && userRoles.includes('owner') && (
+                <Card className="border-0 shadow-sm bg-orange-50/80 neu-flat">
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-sm">{pendingOwner}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-orange-800">Menunggu Review Owner</p>
+                      <p className="text-xs text-orange-700">Ada {pendingOwner} permintaan butuh keputusan Anda.</p>
+                    </div>
+                    <Link to="/owner-inbox"><Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white rounded-lg">Review</Button></Link>
+                  </CardContent>
+                </Card>
+              )}
+              {pendingHeadmaster > 0 && userRoles.includes('headmaster') && (
+                <Card className="border-0 shadow-sm bg-indigo-50/80 neu-flat">
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">{pendingHeadmaster}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-indigo-800">Menunggu Persetujuan Kepsek</p>
+                      <p className="text-xs text-indigo-700">Ada {pendingHeadmaster} permintaan menunggu tanda tangan.</p>
+                    </div>
+                    <Link to="/headmaster-inbox"><Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">Tinjau</Button></Link>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
-          <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
-                <Building2 className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalDepartments}</div>
-              <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Departemen</div>
-            </CardContent>
-          </Card>
+        {/* Grid statistik lama — disembunyikan default, bisa ditampilkan manual lewat toggle */}
+        {showStats && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 animate-in fade-in-50">
+            <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
+              <CardContent className="p-4 sm:p-6 text-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
+                  <Package className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalItems}</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Alat Tersedia</div>
+              </CardContent>
+            </Card>
 
-          <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
-                <FileText className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.myRequests}</div>
-              <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Pengajuan Saya</div>
-            </CardContent>
-          </Card>
+            <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
+              <CardContent className="p-4 sm:p-6 text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
+                  <Building2 className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalDepartments}</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Departemen</div>
+              </CardContent>
+            </Card>
 
-          <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
-                <Clock className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.activeLoans}</div>
-              <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Sedang Dipinjam</div>
-            </CardContent>
-          </Card>
+            <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
+              <CardContent className="p-4 sm:p-6 text-center">
+                <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
+                  <FileText className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.myRequests}</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Pengajuan Saya</div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all">
+              <CardContent className="p-4 sm:p-6 text-center">
+                <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-3 neu-raised">
+                  <Clock className="h-6 w-6 text-purple-600" />
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.activeLoans}</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium mt-1">Sedang Dipinjam</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Tombol toggle tampil/sembunyi statistik */}
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowStats(s => !s)}
+            className="text-[11px] px-3 py-1 rounded-full bg-white/70 hover:bg-white shadow neu-flat transition-all border border-gray-200 text-gray-600"
+          >{showStats ? 'Sembunyikan Statistik' : 'Tampilkan Statistik Ringkas'}</button>
         </div>
 
         {/* Quick Actions dengan spacing yang lebih baik */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-6 text-gray-900">Aksi Cepat</h2>
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold mb-5 text-gray-900 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-primary shadow-inner" /> Aksi Cepat
+          </h2>
           <div className="grid grid-cols-2 gap-4 sm:gap-6">
             {quickActions.map((action) => (
               <Link key={action.title} to={action.link}>
-                <Card className="neu-flat hover:neu-raised transition-all h-full group">
+                <Card className="neu-flat hover:neu-raised transition-all h-full group relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-white/0 via-white/30 to-white/60 pointer-events-none" />
                   <CardContent className="p-4 sm:p-5">
                     <div className="space-y-3">
                       <div className="relative">
-                        <div className={`neu-raised w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${action.gradient} group-hover:scale-105 transition-transform`}>
+                        <div className={`neu-raised w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${action.gradient} group-hover:scale-105 transition-transform shadow-inner`}> 
                           <action.icon className={`h-6 w-6 ${action.color}`} />
                         </div>
                         {action.badge && (
-                          <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 text-white">
+                          <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 flex items-center justify-center text-[11px] bg-red-500 text-white shadow-lg">
                             {action.badge}
                           </Badge>
                         )}
                       </div>
                       <div className="space-y-1">
-                        <h3 className="font-semibold text-sm text-gray-900">{action.title}</h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{action.description}</p>
+                        <h3 className="font-semibold text-sm text-gray-900 tracking-tight">{action.title}</h3>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{action.description}</p>
                       </div>
                     </div>
                   </CardContent>

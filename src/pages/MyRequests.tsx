@@ -12,7 +12,29 @@ import { generatePDF } from "@/lib/pdfGenerator";
 import { useNavigate } from "react-router-dom";
 
 export default function MyRequests() {
-  const [requests, setRequests] = useState<any[]>([]);
+  const navigate = useNavigate();
+  interface RequestItemLite { id?: string; quantity: number; item?: { name?: string; code?: string } }
+  interface BorrowerLite { full_name?: string; unit?: string }
+  interface RequestLite {
+    id: string;
+    status: string;
+    created_at: string;
+    purpose: string;
+    letter_number?: string;
+    rejection_reason?: string;
+    start_date: string;
+    end_date: string;
+    location_usage?: string;
+    pic_name?: string;
+    pic_contact?: string;
+    borrower?: BorrowerLite;
+    owner_reviewer?: { full_name?: string };
+    headmaster_approver?: { full_name?: string };
+    request_items?: RequestItemLite[];
+    owner_reviewed_at?: string;
+    headmaster_approved_at?: string;
+  }
+  const [requests, setRequests] = useState<RequestLite[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +61,16 @@ export default function MyRequests() {
           .order("created_at", { ascending: false });
 
         if (isMounted && data) {
-          setRequests(data);
+          // Perbaiki unit kosong tiap borrower via auth metadata (sekali per mapping)
+          const { data: { user } } = await supabase.auth.getUser();
+          const metaUnit = user?.user_metadata?.unit;
+          const fixed = data.map(r => {
+            if (!r.borrower?.unit && metaUnit) {
+              return { ...r, borrower: { ...r.borrower, unit: metaUnit } };
+            }
+            return r;
+          });
+          setRequests(fixed);
           setLoading(false);
         }
       } catch (error) {
@@ -56,7 +87,8 @@ export default function MyRequests() {
   }, []);
 
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; variant: any }> = {
+  type BadgeVariant = 'secondary' | 'outline' | 'destructive' | 'default';
+  const statusMap: Record<string, { label: string; variant: BadgeVariant }> = {
       draft: { label: "Draft", variant: "secondary" },
       pending_owner: { label: "Menunggu Pemilik", variant: "default" },
       pending_headmaster: { label: "Menunggu Kepsek", variant: "default" },
@@ -71,7 +103,7 @@ export default function MyRequests() {
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
   };
 
-  const getStatusMessage = (request: any) => {
+  const getStatusMessage = (request: RequestLite) => {
     switch (request.status) {
       case "pending_owner":
         return "Permintaan terkirim. Menunggu verifikasi Pemilik Alat.";
@@ -90,14 +122,9 @@ export default function MyRequests() {
     }
   };
 
-  const downloadLetter = async (request: any) => {
+  const downloadLetter = async (request: RequestLite) => {
     try {
-      // Fetch headmaster name
-      const { data: headmasterData } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", request.headmaster_approved_by)
-        .single();
+      const headmasterData = request.headmaster_approver;
 
       const pdfData = {
         request: {
@@ -115,7 +142,7 @@ export default function MyRequests() {
             unit: request.borrower?.unit || "Unknown",
             phone: "N/A",
           },
-          request_items: request.request_items?.map((ri: any) => ({
+          request_items: request.request_items?.map((ri: RequestItemLite) => ({
             quantity: ri.quantity,
             items: {
               name: ri.item?.name || "Unknown Item",
@@ -174,8 +201,6 @@ export default function MyRequests() {
     );
   }
 
-  const navigate = useNavigate();
-  
   const approvedRequests = requests.filter(r => 
     ["approved", "active", "completed"].includes(r.status)
   );
@@ -285,8 +310,8 @@ export default function MyRequests() {
                       <div>
                         <p className="text-sm font-medium mb-2">Alat yang Dipinjam:</p>
                         <div className="space-y-1">
-                          {request.request_items?.map((ri: any) => (
-                            <div key={ri.id} className="flex items-center gap-2 text-sm">
+                          {request.request_items?.map((ri: RequestItemLite, idx) => (
+                            <div key={ri.item?.code || idx} className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="font-mono text-xs neu-flat">
                                 {ri.quantity}x
                               </Badge>
@@ -381,8 +406,8 @@ export default function MyRequests() {
                       <div>
                         <p className="text-sm font-medium mb-2">Alat yang Diajukan:</p>
                         <div className="space-y-1">
-                          {request.request_items?.map((ri: any) => (
-                            <div key={ri.id} className="flex items-center gap-2 text-sm">
+                          {request.request_items?.map((ri: RequestItemLite, idx) => (
+                            <div key={ri.item?.code || idx} className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="font-mono text-xs neu-flat">
                                 {ri.quantity}x
                               </Badge>
@@ -441,8 +466,8 @@ export default function MyRequests() {
                       <div>
                         <p className="text-sm font-medium mb-2">Alat yang Diajukan:</p>
                         <div className="space-y-1">
-                          {request.request_items?.map((ri: any) => (
-                            <div key={ri.id} className="flex items-center gap-2 text-sm">
+                          {request.request_items?.map((ri: RequestItemLite, idx) => (
+                            <div key={ri.item?.code || idx} className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="font-mono text-xs neu-flat">
                                 {ri.quantity}x
                               </Badge>

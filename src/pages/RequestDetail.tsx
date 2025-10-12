@@ -133,9 +133,20 @@ export default function RequestDetail() {
 
         if (error) throw error;
         if (isMounted) {
+          // Fallback ambil unit dari user metadata jika kosong
+          let borrowerFixed = data.borrower || { full_name: '', unit: '', phone: '' };
+          if (!borrowerFixed.unit) {
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              const metaUnit = user?.user_metadata?.unit;
+              if (metaUnit) borrowerFixed = { ...borrowerFixed, unit: metaUnit };
+            } catch(e) {
+              console.warn('Fallback unit metadata gagal:', e);
+            }
+          }
           setRequest({
             ...data,
-            borrower: data.borrower || { full_name: '', unit: '', phone: '' }
+            borrower: borrowerFixed
           } as RequestDetail);
         }
       } catch (error) {

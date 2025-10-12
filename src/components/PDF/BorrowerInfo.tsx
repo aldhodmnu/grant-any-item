@@ -89,7 +89,7 @@ export const BorrowerInfo: React.FC<BorrowerInfoProps> = ({
         <View style={styles.infoRow}>
           <Text style={styles.label}>Unit/Bagian</Text>
           <Text style={styles.colon}>:</Text>
-          <Text style={styles.valueNormal}>{borrower.unit}</Text>
+          <Text style={styles.valueNormal}>{borrower.unit || 'Unit Tidak Tercatat'}</Text>
         </View>
         
         {borrower.phone && (

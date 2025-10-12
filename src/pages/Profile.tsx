@@ -25,7 +25,16 @@ import { toast } from "sonner";
 export default function Profile() {
   const navigate = useNavigate();
   const { isAdmin, isOwner, isHeadmaster } = useUserRole();
-  const [userProfile, setUserProfile] = useState<any>(null);
+  interface UserProfile { 
+    id?: string; 
+    full_name?: string; 
+    unit?: string; 
+    email?: string; 
+    phone?: string; 
+    created_at?: string; 
+    updated_at?: string; 
+  }
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRoles, setUserRoles] = useState<{role: string, department: string}[]>([]);
   const [stats, setStats] = useState({
     totalRequests: 0,
@@ -228,42 +237,48 @@ export default function Profile() {
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6">
         {/* Enhanced Profile Details */}
-        <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
+        <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all duration-300">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center neu-raised shadow-inner">
                 <User className="h-5 w-5 text-blue-600" />
               </div>
-              <CardTitle className="text-lg text-gray-900">Informasi Profil</CardTitle>
+              <CardTitle className="text-lg text-gray-900 font-semibold tracking-tight">Informasi Profil</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Mail className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Email</p>
-                <p className="text-sm text-muted-foreground">
+          <CardContent className="space-y-5">
+            <div className="flex items-center gap-4 p-3 rounded-xl neu-flat bg-white/50 hover:neu-raised transition-all duration-200">
+              <div className="w-9 h-9 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center neu-raised">
+                <Mail className="h-4 w-4 text-gray-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800 tracking-tight">Email</p>
+                <p className="text-sm text-gray-600 truncate mt-0.5">
                   {userProfile?.email || "Tidak tersedia"}
                 </p>
               </div>
             </div>
             
             {userProfile?.phone && (
-              <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Telepon</p>
-                  <p className="text-sm text-muted-foreground">{userProfile.phone}</p>
+              <div className="flex items-center gap-4 p-3 rounded-xl neu-flat bg-white/50 hover:neu-raised transition-all duration-200">
+                <div className="w-9 h-9 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center neu-raised">
+                  <Phone className="h-4 w-4 text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 tracking-tight">Telepon</p>
+                  <p className="text-sm text-gray-600 truncate mt-0.5">{userProfile.phone}</p>
                 </div>
               </div>
             )}
             
             {userProfile?.unit && (
-              <div className="flex items-center gap-3">
-                <Building className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Unit Kerja</p>
-                  <p className="text-sm text-muted-foreground">{userProfile.unit}</p>
+              <div className="flex items-center gap-4 p-3 rounded-xl neu-flat bg-white/50 hover:neu-raised transition-all duration-200">
+                <div className="w-9 h-9 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center neu-raised">
+                  <Building className="h-4 w-4 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 tracking-tight">Unit Kerja</p>
+                  <p className="text-sm text-gray-600 truncate mt-0.5">{userProfile.unit}</p>
                 </div>
               </div>
             )}

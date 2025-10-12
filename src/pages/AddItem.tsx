@@ -116,6 +116,41 @@ export default function AddItem() {
   const [newCategory, setNewCategory] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [originalItemData, setOriginalItemData] = useState<FormData | null>(null);
+  const [allowNoCategory, setAllowNoCategory] = useState(false);
+  const [hasCategoryDepartment, setHasCategoryDepartment] = useState<boolean | null>(null);
+  // Flag dukungan kolom baru items (damaged_quantity, lost_quantity, available_quantity)
+  const [supportsNewItemCols, setSupportsNewItemCols] = useState<boolean | null>(null);
+  const newColsCheckedRef = useRef(false);
+
+  // Preflight cek kolom baru untuk menghindari error PGRST204 pertama kali
+  useEffect(() => {
+    const preflight = async () => {
+      if (newColsCheckedRef.current) return;
+      newColsCheckedRef.current = true;
+      try {
+        const { error } = await supabase
+          .from('items')
+          .select('id, damaged_quantity, lost_quantity', { head: true, count: 'exact' })
+          .limit(0);
+        if (error) {
+          const code = (typeof (error as { code?: string }).code === 'string') ? (error as { code?: string }).code : undefined;
+          if (code === 'PGRST204' || code === '42703') {
+            console.warn('Preflight: kolom baru items belum tersedia di schema cache -> fallback mode aktif');
+            setSupportsNewItemCols(false);
+            return;
+          }
+          console.warn('Preflight: error non-kolom baru, lanjut asumsikan kolom ada', error);
+          setSupportsNewItemCols(true);
+        } else {
+          setSupportsNewItemCols(true);
+        }
+      } catch (err) {
+        console.warn('Preflight exception, asumsi kolom tersedia', err);
+        setSupportsNewItemCols(true);
+      }
+    };
+    preflight();
+  }, []);
 
   // Fungsi untuk mencatat aktivitas perubahan item (disabled sementara)
   const logItemActivity = async (itemId: string, actionType: string, oldValues: Record<string, unknown>, newValues: Record<string, unknown>, notes?: string) => {
@@ -145,10 +180,10 @@ export default function AddItem() {
         .from("categories")
         .select("id")
         .eq("name", newCategory.trim());
-      
-      // If user is owner, check for department-specific categories
-      if (hasRole('owner') && userDepartment) {
-        query = query.or(`department.is.null,department.eq."${userDepartment}"`);
+
+      if (hasCategoryDepartment && hasRole('owner') && userDepartment) {
+        const escaped = userDepartment.replace(/"/g, '\\"');
+        query = query.or(`department.is.null,department.eq."${escaped}"`);
       }
       
       const { data: existingCategory, error: checkError } = await query.maybeSingle();
@@ -166,7 +201,7 @@ export default function AddItem() {
       const categoryData: { name: string; department?: string } = { name: newCategory.trim() };
       
       // If user is owner, add department to make it department-specific
-      if (hasRole('owner') && userDepartment) {
+      if (hasCategoryDepartment && hasRole('owner') && userDepartment) {
         categoryData.department = userDepartment;
       }
       // If admin, create global category (no department)
@@ -257,27 +292,27 @@ export default function AddItem() {
 
   // Helper untuk memastikan department_id siap (owner)
   const ensureOwnerDepartment = useCallback((depts: Department[]) => {
-    if (!isOwner || isAdmin) return;
-    if (formData.department_id) return; // sudah diset
+    if (!isOwner || isAdmin || formData.department_id) return;
+    // Coba dapatkan id langsung dari hook baru
+    const directId = getUserDepartmentId();
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (directId && uuidRegex.test(directId)) {
+      setFormData(prev => ({ ...prev, department_id: directId }));
+      return;
+    }
+    // Fallback berdasarkan nama
     const userDeptName = getUserDepartment();
     if (!userDeptName) return;
     const dept = depts.find(d => d.name === userDeptName);
-    if (dept && dept.id) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (uuidRegex.test(dept.id)) {
-        console.log('⚙️ ensureOwnerDepartment: setting department_id early:', dept.id);
-        setFormData(prev => ({ ...prev, department_id: dept.id }));
-      } else {
-        console.warn('⚙️ ensureOwnerDepartment: found dept but invalid UUID id:', dept.id);
-      }
-    } else {
-      console.warn('⚙️ ensureOwnerDepartment: department not found for name:', userDeptName);
+    if (dept && uuidRegex.test(dept.id)) {
+      setFormData(prev => ({ ...prev, department_id: dept.id }));
     }
-  }, [isOwner, isAdmin, formData.department_id, getUserDepartment]);
+  }, [isOwner, isAdmin, formData.department_id, getUserDepartment, getUserDepartmentId]);
 
-  // Main data loading effect - simplified dependencies
+  // Main data loading effect: biarkan data dasar (categories, departments) dimuat dulu
+  // tanpa menunggu role agar form tidak perlu reload 2x.
   useEffect(() => {
-    if (roleLoading || loadedRef.current) return;
+    if (loadedRef.current) return;
 
     let isMounted = true;
     console.log('AddItem effect running for ID:', id, 'isEditMode:', isEditMode);
@@ -302,10 +337,7 @@ export default function AddItem() {
         setCategories(categoriesData as Category[]);
         setDepartments(departmentsData as Department[]);
 
-        // Early ensure dept for owner (new item)
-        if (!isEditMode) {
-          ensureOwnerDepartment(departmentsData as Department[]);
-        }
+        // Jangan assign departemen di sini; tunggu effect khusus role supaya tidak race.
 
         // Handle edit mode
         if (isEditMode && id) {
@@ -327,6 +359,7 @@ export default function AddItem() {
             setFormData(itemFormData);
             setOriginalItemData({...itemFormData, available_quantity: itemData.available_quantity || 1});
             setPreviewImage(itemData.image_url || "");
+            if (!itemData.category_id) setAllowNoCategory(true);
             console.log('Form data set successfully');
           }
         } 
@@ -359,7 +392,37 @@ export default function AddItem() {
         clearTimeout(loadTimeoutRef.current);
       }
     };
-  }, [id, isEditMode, roleLoading, loadItemData, loadCommonData, ensureOwnerDepartment]);
+  }, [id, isEditMode, loadItemData, loadCommonData]);
+
+  // Deteksi apakah kolom department ada di tabel categories (sekali saja)
+  useEffect(() => {
+    const detect = async () => {
+      try {
+        const { error } = await supabase.from('categories').select('id, department').limit(1);
+        if (error) {
+          const pgErr = error as { code?: string };
+          if (pgErr.code === '42703') {
+            console.warn('Kolom department pada categories tidak tersedia. Menggunakan mode global categories.');
+            setHasCategoryDepartment(false);
+            return;
+          }
+        }
+        setHasCategoryDepartment(true);
+      } catch (e) {
+        console.warn('Gagal mendeteksi kolom categories.department, fallback false:', e);
+        setHasCategoryDepartment(false);
+      }
+    };
+    if (hasCategoryDepartment === null) detect();
+  }, [hasCategoryDepartment]);
+
+  // Effect kedua: setelah role loading selesai dan departments sudah ada, pastikan owner punya department_id
+  useEffect(() => {
+    if (roleLoading) return;
+    if (!isEditMode && departments.length > 0 && !formData.department_id) {
+      ensureOwnerDepartment(departments);
+    }
+  }, [roleLoading, isEditMode, departments, formData.department_id, ensureOwnerDepartment]);
 
   // Separate effect for handling new item department assignment
   useEffect(() => {
@@ -429,7 +492,7 @@ export default function AddItem() {
     
     if (!formData.name.trim()) newErrors.name = "Nama barang harus diisi";
     if (!formData.code.trim()) newErrors.code = "Kode barang harus diisi";
-    if (!formData.category_id) newErrors.category_id = "Kategori harus dipilih";
+  if (!allowNoCategory && !formData.category_id) newErrors.category_id = "Kategori harus dipilih atau centang 'Tanpa Kategori'";
     if (!formData.department_id) newErrors.department_id = "Departemen harus dipilih";
     if (formData.quantity < 1) newErrors.quantity = "Jumlah minimal 1";
     if (!formData.location.trim()) newErrors.location = "Lokasi harus diisi";
@@ -595,13 +658,21 @@ export default function AddItem() {
           setSaving(false);
           return;
         }
-        const itemData: { damaged_quantity: number; lost_quantity: number; available_quantity: number; updated_at: string } & typeof formData = {
-          ...formData,
-          damaged_quantity: damaged,
-          lost_quantity: lost,
-          available_quantity: baseAvailable, // total - (rusak + hilang)
-          updated_at: new Date().toISOString()
-        };
+        let itemData: { damaged_quantity?: number; lost_quantity?: number; available_quantity?: number; updated_at: string } & typeof formData;
+        if (supportsNewItemCols === false) {
+          itemData = {
+            ...formData,
+            updated_at: new Date().toISOString()
+          };
+        } else {
+          itemData = {
+            ...formData,
+            damaged_quantity: damaged,
+            lost_quantity: lost,
+            available_quantity: baseAvailable, // total - (rusak + hilang)
+            updated_at: new Date().toISOString()
+          };
+        }
 
         console.log('Inserting item data:', itemData);
         console.log('Department ID:', formData.department_id);
@@ -618,7 +689,7 @@ export default function AddItem() {
         // Check if department_id is valid UUID
         const finalUuidCheck = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const deptUuidValid = finalUuidCheck.test(itemData.department_id);
-        const catUuidValid = finalUuidCheck.test(itemData.category_id);
+  const catUuidValid = allowNoCategory ? true : finalUuidCheck.test(itemData.category_id);
         
         console.log('🔍 Department UUID validation:', deptUuidValid);
         console.log('🔍 Category UUID validation:', catUuidValid);
@@ -639,18 +710,65 @@ export default function AddItem() {
           return;
         }
 
-        const { data: newItem, error } = await supabase
+        if (allowNoCategory) {
+          (itemData as unknown as { category_id: string | null }).category_id = null;
+        }
+        const { data: newItemInit, error } = await supabase
           .from("items")
-          .insert([{
-            ...itemData,
-            created_at: new Date().toISOString()
-          }])
+          .insert([{ ...itemData, created_at: new Date().toISOString() }])
           .select()
           .single();
-        
+
+        let newItem = newItemInit; // allow reassignment after fallback
         if (error) {
           console.error("Database error details:", error);
-          throw error;
+          const pgErr = error as { code?: string };
+          const code = pgErr.code;
+          if (code === 'PGRST204') {
+            // Schema cache Supabase belum kenal kolom damaged/lost -> retry tanpa kolom baru
+            console.warn('PGRST204: Retry insert tanpa damaged/lost_quantity & available_quantity');
+            const fallbackPayload = {
+              name: formData.name,
+              department_id: formData.department_id,
+              status: formData.status,
+              quantity: formData.quantity,
+              category_id: allowNoCategory ? null : formData.category_id,
+              code: formData.code || null,
+              description: formData.description || null,
+              location: formData.location || null,
+              image_url: formData.image_url || null,
+              accessories: null
+            } as const;
+            // (Kolom baru sudah otomatis tidak disertakan di object ini)
+            const retry = await supabase
+              .from("items")
+              .insert([{
+                ...fallbackPayload,
+                created_at: new Date().toISOString()
+              }])
+              .select()
+              .single();
+            if (retry.error) {
+              console.error('Retry insert masih gagal:', retry.error);
+              showToast.error('Gagal tambah barang: server belum sinkron skema. Coba tunggu 1-2 menit lalu refresh.');
+              throw retry.error;
+            } else {
+              newItem = retry.data;
+              showToast.warning('Barang dibuat tanpa data rusak/hilang (skema server belum sinkron). Regenerasi tipe & refresh nanti.');
+            }
+          } else if (code === '42501') {
+            showToast.error('Akses ditolak oleh kebijakan (RLS). Pastikan role Anda benar.');
+            throw error;
+          } else if (code === '23503') {
+            showToast.error('Relasi tidak valid (kategori atau departemen). Refresh dan coba lagi.');
+            throw error;
+          } else if (code === '22P02') {
+            showToast.error('Format ID departemen/kategori tidak valid (UUID).');
+            throw error;
+          } else {
+            showToast.error('Gagal menambahkan barang (DB).');
+            throw error;
+          }
         }
 
         // Log pembuatan item baru
@@ -910,14 +1028,29 @@ export default function AddItem() {
             </CardHeader>
             <CardContent className="space-y-4 px-4 pb-4">
               <div>
-                <Label htmlFor="category" className="text-sm font-medium text-gray-700 mb-2 block">Kategori *</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="category" className="text-sm font-medium text-gray-700">Kategori {allowNoCategory ? '(Opsional)' : '*'}</Label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-blue-600"
+                      checked={allowNoCategory}
+                      onChange={(e) => {
+                        setAllowNoCategory(e.target.checked);
+                        if (e.target.checked) handleInputChange('category_id', '');
+                      }}
+                    />
+                    <span>Tanpa Kategori</span>
+                  </label>
+                </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <Select
                       value={formData.category_id}
                       onValueChange={(value) => handleInputChange("category_id", value)}
+                      disabled={allowNoCategory}
                     >
-                      <SelectTrigger className={`neu-sunken border-0 bg-white/50 h-11 ${errors.category_id ? "ring-2 ring-red-500" : ""}`}>
+                      <SelectTrigger className={`neu-sunken border-0 bg-white/50 h-11 ${errors.category_id ? "ring-2 ring-red-500" : ""} ${allowNoCategory ? 'opacity-60 cursor-not-allowed' : ''}`}>
                         <SelectValue placeholder="Pilih kategori" />
                       </SelectTrigger>
                       <SelectContent>
@@ -929,9 +1062,7 @@ export default function AddItem() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  {/* Tombol Tambah Kategori - Compact */}
-                  {(isOwner || isAdmin) && (
+                  {(isOwner || isAdmin) && !allowNoCategory && (
                     <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
                       <DialogTrigger asChild>
                         <Button 
@@ -950,15 +1081,10 @@ export default function AddItem() {
                             Tambah Kategori Baru
                           </DialogTitle>
                           <DialogDescription className="text-sm text-gray-600">
-                            {hasRole('owner') && getUserDepartment() ? (
-                              <>
-                                Kategori akan dibuat khusus untuk departemen <strong>{getUserDepartment()}</strong>. 
-                                Hanya anggota departemen ini yang dapat melihat dan menggunakan kategori ini.
-                              </>
+                            {hasRole('owner') && getUserDepartment() && hasCategoryDepartment ? (
+                              <>Kategori akan dibuat khusus untuk departemen <strong>{getUserDepartment()}</strong>.</>
                             ) : (
-                              <>
-                                Sebagai admin, kategori akan dibuat sebagai kategori global yang dapat digunakan oleh semua departemen.
-                              </>
+                              <>Kategori akan dibuat sebagai kategori global.</>
                             )}
                           </DialogDescription>
                         </DialogHeader>
@@ -1005,7 +1131,7 @@ export default function AddItem() {
                     </Dialog>
                   )}
                 </div>
-                {errors.category_id && <p className="text-xs text-red-500 mt-1">{errors.category_id}</p>}
+                {errors.category_id && !allowNoCategory && <p className="text-xs text-red-500 mt-1">{errors.category_id}</p>}
               </div>
 
               <div>

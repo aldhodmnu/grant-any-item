@@ -3,7 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface UserRole {
   role: string;
-  department: string;
+  department: string | null;
+  // Tambahan opsional bila nanti ditambahkan kolom department_id di user_roles
+  department_id?: string | null;
 }
 
 interface Department {
@@ -18,30 +20,49 @@ export const useUserRole = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchUserRoles();
-    fetchDepartments();
+    let active = true;
+    const loadAll = async () => {
+      try {
+        setLoading(true);
+        await Promise.all([fetchUserRoles(), fetchDepartments()]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    loadAll();
+    return () => { active = false; };
   }, []);
 
   const fetchUserRoles = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setLoading(false);
         return;
       }
-
-      const { data: userRoles, error } = await supabase
-        .from('user_roles')
-        .select('role, department')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      setRoles(userRoles || []);
+        // Coba ambil dengan department_id (jika belum ada akan error kolom tidak ditemukan)
+        let userRoles: UserRole[] | null = null;
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role, department, department_id')
+          .eq('user_id', user.id);
+        if (error) {
+          // Jika error karena kolom tidak ada, fallback tanpa department_id
+          if ((error as any).code === '42703' || (error as any).message?.includes('department_id')) {
+            const { data: dataFallback, error: err2 } = await supabase
+              .from('user_roles')
+              .select('role, department')
+              .eq('user_id', user.id);
+            if (err2) throw err2;
+            userRoles = dataFallback as UserRole[];
+          } else {
+            throw error;
+          }
+        } else {
+          userRoles = data as UserRole[];
+        }
+        setRoles(userRoles || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -75,24 +96,11 @@ export const useUserRole = () => {
 
   const getUserDepartmentId = (): string | null => {
     const ownerRole = roles.find(r => r.role === 'owner');
-    console.log('🔍 getUserDepartmentId - Owner role found:', ownerRole);
-    
-    if (!ownerRole?.department) {
-      console.log('🔍 getUserDepartmentId - No owner role or department found');
-      return null;
-    }
-    
-    console.log('🔍 getUserDepartmentId - Looking for department name:', ownerRole.department);
-    console.log('🔍 getUserDepartmentId - Available departments:', departments);
-    
-    // Cari department ID berdasarkan nama department
-    const department = departments.find(d => d.name === ownerRole.department);
-    console.log('🔍 getUserDepartmentId - Found department object:', department);
-    
-    const result = department?.id || null;
-    console.log('🔍 getUserDepartmentId - Returning ID:', result);
-    
-    return result;
+    if (!ownerRole) return null;
+    if (ownerRole.department_id) return ownerRole.department_id; // gunakan jika tersedia
+    if (!ownerRole.department) return null;
+    const dept = departments.find(d => d.name === ownerRole.department);
+    return dept?.id || null;
   };
 
   const canManageInventory = (): boolean => {
@@ -129,6 +137,10 @@ export const useUserRole = () => {
     canManageInventory,
     canApproveRequests,
     getRoleLabels,
-    refetch: fetchUserRoles
+    refetch: async () => {
+      setLoading(true);
+      await Promise.all([fetchUserRoles(), fetchDepartments()]);
+      setLoading(false);
+    }
   };
 };

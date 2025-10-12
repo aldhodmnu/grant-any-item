@@ -2,9 +2,18 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 // Extend jsPDF with autoTable
+// Definisi minimal untuk menghindari any
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF;
+    autoTable: (options: {
+      startY?: number;
+      head: (string[])[];
+      body: (Array<string | number>)[];
+      theme?: string;
+      styles?: Record<string, unknown>;
+      headStyles?: Record<string, unknown>;
+      columnStyles?: Record<number, Record<string, unknown>>;
+    }) => jsPDF;
   }
 }
 
@@ -146,7 +155,7 @@ export const generatePDF = async (data: PDFData): Promise<void> => {
   doc.setFont('helvetica', 'normal');
   doc.text("Unit/Bagian", leftCol, yPosition);
   doc.text(":", colonPos, yPosition);
-  doc.text(data.request.borrower.unit, valuePos, yPosition);
+  doc.text(data.request.borrower.unit || 'Unit Tidak Tercatat', valuePos, yPosition);
   yPosition += 6;
   
   doc.text("No. Telepon", leftCol, yPosition);
@@ -190,7 +199,13 @@ export const generatePDF = async (data: PDFData): Promise<void> => {
     }
   });
   
-  yPosition = (doc as any).lastAutoTable.finalY + 15;
+  // Akses properti lastAutoTable dengan casting terkontrol
+  const lastTable: unknown = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable;
+  if (lastTable && typeof (lastTable as { finalY: number }).finalY === 'number') {
+    yPosition = (lastTable as { finalY: number }).finalY + 15;
+  } else {
+    yPosition += 15;
+  }
   
   // ===== LOAN DETAILS =====
   yPosition += 5;

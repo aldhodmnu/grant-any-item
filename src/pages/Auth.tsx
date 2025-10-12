@@ -138,13 +138,13 @@ export default function Auth() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="unit">Unit/Bagian</Label>
+                    <Label htmlFor="unit">Unit</Label>
                     <Input
                       id="unit"
                       type="text"
                       value={unit}
                       onChange={(e) => setUnit(e.target.value)}
-                      placeholder="Contoh: SMP, SD, Media"
+                      placeholder="Contoh: SMP, SD, Pesantren"
                       className="neu-sunken"
                     />
                   </div>

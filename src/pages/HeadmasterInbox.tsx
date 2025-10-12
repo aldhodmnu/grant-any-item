@@ -168,7 +168,8 @@ export default function HeadmasterInbox() {
       .from("borrow_requests")
       .select(baseSelect)
       .eq("status", "pending_headmaster")
-      .order("owner_reviewed_at", { ascending: false });
+      // Antrian: pakai ASC supaya yang lebih dulu direview owner muncul paling atas
+      .order("owner_reviewed_at", { ascending: true });
 
     const { data: approvedData } = await supabase
       .from("borrow_requests")

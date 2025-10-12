@@ -48,42 +48,57 @@ export default function Checkout() {
 
   const fetchUserProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, phone")
-        .eq("id", user.id)
-        .single();
+    if (!user) return;
 
-      if (profile) {
-        setUserProfile({
-          ...profile,
-          email: user.email || "",
-        });
-      }
+    // Ambil profile dari tabel + fallback metadata user (kadang phone tidak ada di tabel)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("id", user.id)
+      .maybeSingle();
+
+  const meta: Record<string, unknown> = (user as { user_metadata?: Record<string, unknown> })?.user_metadata || {};
+  const metaString = (key: string) => (typeof meta[key] === 'string' ? (meta[key] as string) : '');
+  const fullNameFallback = profile?.full_name || metaString('full_name') || metaString('name') || "";
+  const phoneFallback = profile?.phone || metaString('phone') || metaString('telephone') || metaString('tel') || "";
+
+    setUserProfile({
+      full_name: fullNameFallback,
+      phone: phoneFallback,
+      email: user.email || "",
+    });
+
+    // Auto-enable gunakan data sendiri bila tersedia nama & (opsional nomor). Kalau nomor kosong kita tetap enable agar user sadar perlu isi profil.
+    if (fullNameFallback) {
+      setUseOwnContact(true);
     }
   };
 
   // Update form when using own contact
   useEffect(() => {
-    if (useOwnContact && userProfile) {
+    if (!userProfile) return;
+    if (useOwnContact) {
+      // Jangan overwrite manual jika sudah sama
       setFormData(prev => ({
         ...prev,
-        pic_name: userProfile.full_name || "",
-        pic_contact: userProfile.phone || "",
+        pic_name: userProfile.full_name || prev.pic_name,
+        pic_contact: userProfile.phone || prev.pic_contact,
       }));
-    } else if (!useOwnContact) {
-      setFormData(prev => ({
-        ...prev,
-        pic_name: "",
-        pic_contact: "",
-      }));
+    } else {
+      // Biarkan user manual; tidak otomatis kosongkan bila sudah terisi
     }
   }, [useOwnContact, userProfile]);
 
   const handleSubmit = async () => {
     if (!formData.purpose || !startDate || !endDate || !formData.pic_name || !formData.pic_contact || !formData.location_usage) {
       toast.error("Mohon lengkapi semua field yang wajib diisi");
+      return;
+    }
+
+    // Validasi nomor HP sederhana (minimal 8 digit angka) jika menggunakan data sendiri
+    const digits = formData.pic_contact.replace(/\D/g, "");
+    if (digits.length < 8) {
+      toast.error("Nomor kontak PIC tidak valid / masih kosong. Lengkapi di profil atau isi manual.");
       return;
     }
 
@@ -143,7 +158,19 @@ export default function Checkout() {
       navigate("/orders");
     } catch (error: unknown) {
       console.error("Error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Gagal mengajukan permintaan";
+      let errorMessage = "Gagal mengajukan permintaan";
+      if (error && typeof error === 'object' && 'code' in error) {
+        const pgErr = error as { code?: string; message?: string; details?: string };
+        if (pgErr.code === '42501') {
+          errorMessage = 'Akses ditolak oleh kebijakan keamanan (RLS). Hubungi admin jika terus terjadi.';
+        } else if (pgErr.code === 'PGRST204') {
+          errorMessage = 'Skema belum sinkron (kolom baru belum terdeteksi server). Coba refresh atau tunggu 1 menit.';
+        } else if (pgErr.message) {
+          errorMessage = pgErr.message;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -364,6 +391,15 @@ export default function Checkout() {
               </Label>
             </div>
 
+            {useOwnContact && userProfile && !userProfile.phone && (
+              <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-xs leading-relaxed">
+                Nomor telepon Anda belum ada di profil. Silakan lengkapi di halaman Profil supaya form otomatis terisi di masa depan.
+                <Button type="button" variant="outline" size="xs" className="ml-2 h-6 px-2 text-xs" onClick={() => navigate('/profile')}>
+                  Buka Profil
+                </Button>
+              </div>
+            )}
+
             <div>
               <Label htmlFor="pic_name" className="text-sm font-medium text-gray-700">Nama Penanggung Jawab *</Label>
               <Input
@@ -396,7 +432,7 @@ export default function Checkout() {
               />
               {useOwnContact && (
                 <p className="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded border border-blue-200">
-                  Menggunakan data profil Anda: <span className="font-medium">{userProfile?.full_name}</span> - <span className="font-medium">{userProfile?.phone}</span>
+                  Menggunakan data profil Anda: <span className="font-medium">{userProfile?.full_name}</span> - <span className="font-medium">{userProfile?.phone || 'Nomor belum diisi'}</span>
                 </p>
               )}
             </div>

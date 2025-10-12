@@ -87,11 +87,12 @@ export default function OwnerInbox() {
 
   const fetchRequests = useCallback(async () => {
     // Pending
+    // Pending: ubah ke ascending agar terasa seperti antrian (permintaan tertua di atas)
     const { data: pendingData } = await supabase
       .from("borrow_requests")
       .select(baseSelect)
       .eq("status", "pending_owner")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     // Approved (internal direct OR setelah headmaster approve) yang sudah generate surat internal tanpa headmaster
     const { data: approvedData } = await supabase

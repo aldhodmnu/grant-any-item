@@ -28,6 +28,7 @@ export default function Departments() {
   const [isOwner, setIsOwner] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { getTotalItems } = useCart();
 
   const fetchDepartments = useCallback(async () => {
@@ -105,9 +106,11 @@ export default function Departments() {
         });
         
         setDepartments(sorted);
+        setError(null);
       }
     } catch (error) {
       console.error("Error fetching departments:", error);
+      setError('Gagal memuat data departemen');
     } finally {
       setLoading(false);
     }
@@ -117,11 +120,10 @@ export default function Departments() {
     fetchUserContext();
   }, []);
 
+  // Selalu fetch daftar departemen meskipun userDepartment null (admin/headmaster/borrower tanpa unit)
   useEffect(() => {
-    if (userDepartment !== null) {
-      fetchDepartments();
-    }
-  }, [userDepartment, fetchDepartments]);
+    fetchDepartments();
+  }, [userDepartment, ownerDepartments, fetchDepartments]);
 
   const fetchUserContext = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -158,6 +160,9 @@ export default function Departments() {
             <div className="text-center space-y-3">
               <div className="animate-spin w-8 h-8 border-3 border-primary border-t-transparent rounded-full mx-auto"></div>
               <p className="text-muted-foreground">Memuat departemen...</p>
+              {error && (
+                <p className="text-xs text-red-500 mt-2">{error}</p>
+              )}
             </div>
           </div>
         </div>
@@ -199,7 +204,16 @@ export default function Departments() {
       </div>
 
       <div className="container-mobile py-6 px-5">
-        {departments.length === 0 ? (
+        {(error) && (
+          <Card className="neu-flat mx-2">
+            <CardContent className="py-10 text-center space-y-3">
+              <Building2 className="h-10 w-10 text-red-500 mx-auto" />
+              <p className="text-sm text-red-600">{error}</p>
+              <Button size="sm" variant="outline" onClick={() => { setLoading(true); fetchDepartments(); }}>Coba Lagi</Button>
+            </CardContent>
+          </Card>
+        )}
+        {!error && departments.length === 0 ? (
           <Card className="neu-flat mx-2">
             <CardContent className="py-16 text-center">
               <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

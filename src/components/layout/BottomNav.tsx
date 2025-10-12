@@ -1,33 +1,19 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Building2, ShoppingCart, FileText, User, Package, Settings } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Home, Building2, ShoppingCart, FileText, User, Package } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/hooks/useCart";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { getTotalItems } = useCart();
-  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const { roles, loading: rolesLoading } = useUserRole();
+  const userRoles = roles.map(r => r.role);
   const [unreadLetters, setUnreadLetters] = useState(0);
 
-  useEffect(() => {
-    const fetchUserRoles = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id);
-
-      if (roles) {
-        setUserRoles(roles.map(r => r.role));
-      }
-    };
-
-    fetchUserRoles();
-  }, []);
+  // Catat agar struktur tab stabil: selalu render slot Manage (disabling interaksi saat belum punya role)
 
   useEffect(() => {
     const fetchUnreadLetters = async () => {
@@ -73,74 +59,84 @@ export const BottomNav = () => {
   const totalItems = getTotalItems();
   const isOwnerOrAdmin = userRoles.includes("owner") || userRoles.includes("admin");
 
-  const tabs = [
-    {
-      id: "home",
-      label: "Home",
-      icon: Home,
-      path: "/",
-      badge: null
-    },
-    {
-      id: "departments",
-      label: "Departments",
-      icon: Building2,
-      path: "/departments",
-      badge: null
-    },
-    {
-      id: "cart",
-      label: "Cart",
-      icon: ShoppingCart,
-      path: "/cart",
-      badge: totalItems > 0 ? totalItems : null
-    },
-    ...(isOwnerOrAdmin ? [{
-      id: "manage",
-      label: "Kelola",
-      icon: Package,
-      path: "/manage-inventory",
-      badge: null
-    }] : []),
-    {
-      id: "orders",
-      label: "Orders",
-      icon: FileText,
-      path: "/orders",
-      badge: unreadLetters > 0 ? unreadLetters : null
-    },
-    {
-      id: "profile",
-      label: "Profile",
-      icon: User,
-      path: "/profile",
-      badge: null
-    }
-  ];
+  const tabs = useMemo(() => {
+    const base = [
+      { id: 'home', label: 'Home', icon: Home, path: '/', badge: null },
+      { id: 'departments', label: 'Departments', icon: Building2, path: '/departments', badge: null },
+      { id: 'cart', label: 'Cart', icon: ShoppingCart, path: '/cart', badge: totalItems > 0 ? totalItems : null },
+    ];
+    const manage = isOwnerOrAdmin ? [{ id: 'manage', label: 'Kelola', icon: Package, path: '/manage-inventory', badge: null }] : [];
+    const tail = [
+      { id: 'orders', label: 'Orders', icon: FileText, path: '/orders', badge: unreadLetters > 0 ? unreadLetters : null },
+      { id: 'profile', label: 'Profile', icon: User, path: '/profile', badge: null }
+    ];
+    return [...base, ...manage, ...tail];
+  }, [totalItems, unreadLetters, isOwnerOrAdmin]);
 
   return (
-    <div className="bottom-nav">
-      <div className="flex items-center justify-around h-16 px-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => navigate(tab.path)}
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 relative ${
-              isActive(tab.path) ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <div className="relative">
-              <tab.icon className="h-5 w-5" />
-              {tab.badge && (
-                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
-                  {tab.badge > 99 ? '99+' : tab.badge}
-                </span>
-              )}
-            </div>
-            <span className="text-xs mt-1 font-medium">{tab.label}</span>
-          </button>
-        ))}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
+      {/* Modern floating glass container */}
+      <div className="mx-4 mb-4">
+        <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-black/10 neu-raised-heavy overflow-hidden">
+          {/* Subtle gradient overlay for depth */}
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-50/30 to-white/30 pointer-events-none" />
+          
+          {/* Navigation items */}
+          <div className="relative flex justify-around items-center py-3 px-2">
+            {tabs.map((tab) => {
+              const isTabActive = isActive(tab.path);
+              const Icon = tab.icon;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => navigate(tab.path)}
+                  className="relative flex flex-col items-center justify-center min-w-0 flex-1 py-2 px-1 group transition-all duration-300"
+                >
+                  {/* Active indicator background */}
+                  {isTabActive && (
+                    <div className="absolute inset-0 bg-primary/10 rounded-xl neu-inset animate-in fade-in-50 zoom-in-95" />
+                  )}
+                  
+                  {/* Icon container with neu effect */}
+                  <div className={`relative p-2 rounded-xl transition-all duration-300 group-active:scale-95 ${
+                    isTabActive 
+                      ? "neu-raised bg-white shadow-inner" 
+                      : "group-hover:neu-flat group-hover:bg-white/50"
+                  }`}>
+                    <Icon className={`h-5 w-5 transition-colors duration-300 ${
+                      isTabActive 
+                        ? "text-primary" 
+                        : "text-gray-500 group-hover:text-gray-700"
+                    }`} />
+                    
+                    {/* Badge with neu styling */}
+                    {tab.badge && (
+                      <div className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-red-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg neu-raised border border-white/30">
+                        {tab.badge > 99 ? '99+' : tab.badge}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Label with better typography */}
+                  <span className={`text-[10px] mt-1 font-semibold tracking-tight transition-colors duration-300 ${
+                    isTabActive 
+                      ? "text-primary" 
+                      : "text-gray-500 group-hover:text-gray-700"
+                  }`}>
+                    {tab.label}
+                  </span>
+                  
+                  {/* Active dot indicator */}
+                  {isTabActive && (
+                    <div className="absolute -bottom-1 w-1 h-1 bg-primary rounded-full shadow-sm animate-in fade-in-50 slide-in-from-bottom-2" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </div>
+    </nav>
   );
 };
