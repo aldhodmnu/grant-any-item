@@ -18,8 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
-import { BorrowLetter } from "@/components/PDF/BorrowLetter";
+import { PDFModal } from "@/components/PDFModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateQRDataUrl } from "@/lib/qr";
 
@@ -73,6 +72,7 @@ export default function HeadmasterInbox() {
   const [selectedRequest, setSelectedRequest] = useState<BorrowRequest | null>(null);
   const [previewRequest, setPreviewRequest] = useState<BorrowRequest | null>(null);
   const [showLetterPreview, setShowLetterPreview] = useState(false);
+  const [showDraftPreview, setShowDraftPreview] = useState(false);
   const [headmasterName, setHeadmasterName] = useState<string>("Kepala Sekolah");
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
@@ -443,43 +443,18 @@ export default function HeadmasterInbox() {
 
                   {/* Actions */}
                   <div className="border-t pt-4 space-y-3">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full neu-flat"
-                          onClick={() => setSelectedRequest(request)}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview Surat (PDF)
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
-                        <DialogHeader>
-                          <DialogTitle>Preview Surat Resmi (Draft)</DialogTitle>
-                          <DialogDescription>Format final A4 dengan tanda tangan Kepala Sekolah akan muncul setelah approve.</DialogDescription>
-                        </DialogHeader>
-                        {selectedRequest && (
-                          <div className="h-[600px] border rounded-lg overflow-hidden">
-                            <PDFViewer style={{ width: '100%', height: '100%' }} showToolbar={false}>
-                              <BorrowLetter
-                                data={{
-                                  request: asLetterRequest(selectedRequest)!,
-                                  ownerName: selectedRequest?.owner_reviewer?.full_name || 'Pengelola Inventaris',
-                                  headmasterName: headmasterName || 'Kepala Sekolah',
-                                  schoolName: 'Darul Ma\'arif',
-                                  schoolAddress: 'Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu',
-                                  letterType: 'official',
-                                  logoUrl: '/logodm.png',
-                                  qrDataUrl: qrDataUrl || undefined,
-                                  verificationUrl: verificationUrl || undefined
-                                }}
-                              />
-                            </PDFViewer>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full neu-flat"
+                      onClick={() => {
+                        setSelectedRequest(request);
+                        setShowDraftPreview(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview Surat (PDF)
+                    </Button>
 
                     <div>
                       <Label htmlFor={`notes-${request.id}`} className="text-sm">
@@ -650,82 +625,48 @@ export default function HeadmasterInbox() {
         </Tabs>
       </div>
       
-      {/* Letter Preview Dialog */}
-      <Dialog open={showLetterPreview} onOpenChange={setShowLetterPreview}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Preview Surat Peminjaman - Disetujui Kepala Sekolah</DialogTitle>
-            <DialogDescription>
-              Surat peminjaman telah disetujui dan siap untuk dicetak dengan tanda tangan resmi
-            </DialogDescription>
-          </DialogHeader>
-          
-          {previewRequest && (
-            <div className="space-y-4">
-              {/* PDF Preview */}
-              <div className="h-[600px] border rounded-lg overflow-hidden">
-                <PDFViewer 
-                  style={{ width: '100%', height: '100%' }}
-                  showToolbar={false}
-                >
-                  <BorrowLetter 
-                    data={{
-                      request: asLetterRequest(previewRequest!),
-                      ownerName: previewRequest?.owner_reviewer?.full_name || "Pengelola Inventaris",
-                      headmasterName,
-                      schoolName: "Darul Ma'arif",
-                      schoolAddress: "Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu",
-                      letterType: 'official',
-                      qrDataUrl: qrDataUrl || undefined,
-                      verificationUrl: verificationUrl || undefined
-                    }}
-                  />
-                </PDFViewer>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex gap-4 justify-end">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowLetterPreview(false)}
-                  className="bg-gray-50 hover:bg-gray-100 neu-button-raised hover:neu-button-pressed border-0"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Tutup Preview
-                </Button>
-                
-                <PDFDownloadLink
-                  document={
-                    <BorrowLetter 
-                      data={{
-                        request: asLetterRequest(previewRequest!),
-                        ownerName: previewRequest?.owner_reviewer?.full_name || "Pengelola Inventaris",
-                        headmasterName,
-                        schoolName: "Darul Ma'arif",
-                        schoolAddress: "Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu",
-                        letterType: 'official',
-                        qrDataUrl: qrDataUrl || undefined,
-                        verificationUrl: verificationUrl || undefined
-                      }}
-                    />
-                  }
-                  fileName={`Surat_Peminjaman_${previewRequest.borrower?.full_name?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`}
-                >
-                  {({ loading }) => (
-                    <Button 
-                      disabled={loading}
-                      className="bg-blue-600 hover:bg-blue-700 text-white neu-button-raised hover:neu-button-pressed border-0"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      {loading ? 'Mempersiapkan PDF...' : 'Download PDF'}
-                    </Button>
-                  )}
-                </PDFDownloadLink>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Letter Preview Modal - Approved */}
+      {previewRequest && (
+        <PDFModal
+          open={showLetterPreview}
+          onOpenChange={setShowLetterPreview}
+          title="Preview Surat Peminjaman - Disetujui Kepala Sekolah"
+          description="Surat peminjaman telah disetujui dan siap untuk dicetak dengan tanda tangan resmi"
+          data={{
+            request: asLetterRequest(previewRequest!),
+            ownerName: previewRequest?.owner_reviewer?.full_name || "Pengelola Inventaris",
+            headmasterName,
+            schoolName: "Darul Ma'arif",
+            schoolAddress: "Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu",
+            letterType: 'official',
+            qrDataUrl: qrDataUrl || undefined,
+            verificationUrl: verificationUrl || undefined
+          }}
+          fileName={`Surat_Peminjaman_${previewRequest.borrower?.full_name?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`}
+        />
+      )}
+
+      {/* Draft Preview Modal */}
+      {selectedRequest && (
+        <PDFModal
+          open={showDraftPreview}
+          onOpenChange={setShowDraftPreview}
+          title="Preview Surat Resmi (Draft)"
+          description="Format final A4 dengan tanda tangan Kepala Sekolah akan muncul setelah approve."
+          data={{
+            request: asLetterRequest(selectedRequest)!,
+            ownerName: selectedRequest?.owner_reviewer?.full_name || 'Pengelola Inventaris',
+            headmasterName: headmasterName || 'Kepala Sekolah',
+            schoolName: 'Darul Ma\'arif',
+            schoolAddress: 'Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu',
+            letterType: 'official',
+            logoUrl: '/logodm.png',
+            qrDataUrl: qrDataUrl || undefined,
+            verificationUrl: verificationUrl || undefined
+          }}
+          fileName={`Draft_Surat_Peminjaman_${selectedRequest.borrower?.full_name?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`}
+        />
+      )}
       
       <BottomNav />
     </div>

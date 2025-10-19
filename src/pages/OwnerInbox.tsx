@@ -18,8 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
-import { BorrowLetter } from "@/components/PDF/BorrowLetter";
+import { PDFModal } from "@/components/PDFModal";
 import { generateQRDataUrl } from "@/lib/qr";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -716,84 +715,27 @@ export default function OwnerInbox() {
         </Tabs>
       </div>
       
-      {/* Letter Preview Dialog */}
-      <Dialog open={showLetterPreview} onOpenChange={(o) => { if (!o) { setDraftMode(false); setShowLetterPreview(false);} }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>{draftMode ? 'Draft Surat Internal' : 'Surat Internal Disetujui'}</DialogTitle>
-            <DialogDescription>
-              {draftMode ? 'Pratinjau sebelum persetujuan. Belum sah sampai Anda klik Terima.' : 'Surat peminjaman telah disetujui dan siap untuk dicetak'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {previewRequest && (
-            <div className="space-y-4">
-              {/* PDF Preview */}
-              <div className="h-[600px] border rounded-lg overflow-hidden">
-                <PDFViewer 
-                  style={{ width: '100%', height: '100%' }}
-                  showToolbar={false}
-                >
-                  <BorrowLetter data={{
-                    request: asLetterRequest(previewRequest)!,
-                    ownerName: previewRequest?.owner_reviewer?.full_name || ownerProfile?.full_name || 'Pengelola Inventaris',
-                    headmasterName: undefined,
-                    schoolName: 'Darul Ma\'arif',
-                    schoolAddress: 'Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu',
-                    letterType: 'internal',
-                    logoUrl: '/logodm.png',
-                    qrDataUrl: qrDataUrl || undefined,
-                    verificationUrl: verificationUrl || undefined
-                  }} />
-                </PDFViewer>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex gap-4 justify-end">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowLetterPreview(false)}
-                  className="bg-gray-50 hover:bg-gray-100 neu-button-raised hover:neu-button-pressed border-0"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Tutup Preview
-                </Button>
-                
-                {!draftMode && (
-                  <PDFDownloadLink
-                  document={
-                    <BorrowLetter 
-                      data={{
-                        request: asLetterRequest(previewRequest)!,
-                        ownerName: previewRequest?.owner_reviewer?.full_name || ownerProfile?.full_name || "Pengelola Inventaris",
-                        headmasterName: undefined,
-                        schoolName: "Darul Ma'arif",
-                        schoolAddress: "Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu",
-                        letterType: 'internal',
-                        logoUrl: '/logodm.png',
-                        qrDataUrl: qrDataUrl || undefined,
-                        verificationUrl: verificationUrl || undefined
-                      }}
-                    />
-                  }
-                  fileName={`Surat_Peminjaman_${previewRequest.borrower?.full_name?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`}
-                >
-                  {({ loading }) => (
-                    <Button 
-                      disabled={loading}
-                      className="bg-blue-600 hover:bg-blue-700 text-white neu-button-raised hover:neu-button-pressed border-0"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      {loading ? 'Mempersiapkan PDF...' : 'Download PDF'}
-                    </Button>
-                  )}
-                </PDFDownloadLink>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Letter Preview Modal */}
+      {previewRequest && (
+        <PDFModal
+          open={showLetterPreview}
+          onOpenChange={(o) => { if (!o) { setDraftMode(false); setShowLetterPreview(false);} }}
+          title={draftMode ? 'Draft Surat Internal' : 'Surat Internal Disetujui'}
+          description={draftMode ? 'Pratinjau sebelum persetujuan. Belum sah sampai Anda klik Terima.' : 'Surat peminjaman telah disetujui dan siap untuk dicetak'}
+          data={{
+            request: asLetterRequest(previewRequest)!,
+            ownerName: previewRequest?.owner_reviewer?.full_name || ownerProfile?.full_name || 'Pengelola Inventaris',
+            headmasterName: undefined,
+            schoolName: 'Darul Ma\'arif',
+            schoolAddress: 'Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu',
+            letterType: 'internal',
+            logoUrl: '/logodm.png',
+            qrDataUrl: qrDataUrl || undefined,
+            verificationUrl: verificationUrl || undefined
+          }}
+          fileName={`Surat_Peminjaman_${previewRequest.borrower?.full_name?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`}
+        />
+      )}
       
       <BottomNav />
     </div>
