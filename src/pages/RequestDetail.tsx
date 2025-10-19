@@ -24,19 +24,9 @@ import {
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
-import { generatePDF } from "@/lib/pdfGenerator";
 import { startLoanProcess, completeLoanProcess } from "@/lib/loanManagement";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
-import { BorrowLetter } from "@/components/PDF/BorrowLetter";
-import { generateQRDataUrl } from "@/lib/qr";
+import { PDFPreviewDialog } from "@/components/PDFPreviewDialog";
+import { generatePDFLetter, downloadPDF } from "@/lib/pdfService";
 
 interface RequestDetail {
   id: string;
@@ -49,6 +39,8 @@ interface RequestDetail {
   pic_contact: string;
   letter_number: string;
   letter_generated_at: string;
+  letter_pdf_url?: string | null;
+  letter_generated_pdf_at?: string | null;
   owner_notes: string;
   headmaster_notes: string;
   rejection_reason: string;
@@ -84,27 +76,11 @@ export default function RequestDetail() {
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLetterPreview, setShowLetterPreview] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Get the actual request ID from either parameter
   const actualRequestId = requestId || id;
 
-  // Pastikan QR dibuat saat dialog dibuka jika belum tersedia
-  useEffect(() => {
-    const ensureQR = async () => {
-      if (showLetterPreview && request?.id) {
-        const vUrl = verificationUrl || `${window.location.origin}/verify/${request.id}`;
-        if (!verificationUrl) setVerificationUrl(vUrl);
-        if (!qrDataUrl) {
-          const qr = await generateQRDataUrl(vUrl);
-          setQrDataUrl(qr);
-        }
-      }
-    };
-    ensureQR();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showLetterPreview]);
 
   useEffect(() => {
     let isMounted = true;
@@ -192,8 +168,6 @@ export default function RequestDetail() {
     try {
       const { error } = await supabase
         .from("borrow_requests")
-        // cast any agar tidak bentrok dengan generated types yang mungkin belum memuat kolom baru
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({ letter_viewed_at: new Date().toISOString() } as any)
         .eq("id", actualRequestId);
 
@@ -203,15 +177,35 @@ export default function RequestDetail() {
     }
   };
 
-  const handlePreviewLetter = () => {
-      markLetterAsViewed();
-      if (request?.id) {
-        const origin = window.location.origin;
-        const vUrl = `${origin}/verify/${request.id}`;
-        setVerificationUrl(vUrl);
-        generateQRDataUrl(vUrl).then(setQrDataUrl);
-      }
+  const handlePreviewLetter = async () => {
+    if (!request) return;
+    
+    markLetterAsViewed();
+    
+    // Check if PDF already exists
+    if (request.letter_pdf_url) {
       setShowLetterPreview(true);
+      return;
+    }
+
+    // Generate PDF if not exists
+    setIsGeneratingPDF(true);
+    const letterType = request.letter_number ? 'official' : 'internal';
+    
+    const result = await generatePDFLetter({
+      requestId: request.id,
+      letterType,
+      onProgress: (status) => console.log(status)
+    });
+
+    setIsGeneratingPDF(false);
+
+    if (result.success) {
+      // Refresh request data to get PDF URL
+      window.location.reload();
+    } else {
+      toast.error(result.error || 'Gagal generate PDF');
+    }
   };
 
   const handleStartLoan = async () => {
@@ -269,72 +263,17 @@ export default function RequestDetail() {
   };
 
   const handleDownloadLetter = async () => {
-    if (!request?.letter_number) {
-      toast.error("Surat belum tersedia");
+    if (!request) return;
+
+    // If PDF doesn't exist, generate it first
+    if (!request.letter_pdf_url) {
+      toast.info('Generating PDF...');
+      await handlePreviewLetter();
       return;
     }
 
-    try {
-      // Gunakan nama kepala sekolah dari relasi jika ada
-      const headmasterName = request.headmaster_approver?.full_name;
-      const ownerName = request.owner_reviewer?.full_name;
-      // Tentukan tipe surat: jika punya letter_number (approved headmaster) maka official
-      const letterType = request.letter_number ? 'official' : (headmasterName ? 'official' : 'internal');
-
-      // QR generate kalau belum ada
-      let vUrl = verificationUrl;
-      if (!vUrl) {
-        vUrl = `${window.location.origin}/verify/${request.id}`;
-        setVerificationUrl(vUrl);
-      }
-      let qrUrl = qrDataUrl;
-      if (!qrUrl && vUrl) {
-        qrUrl = await generateQRDataUrl(vUrl);
-        setQrDataUrl(qrUrl);
-      }
-
-      // Prepare PDF data
-      const pdfData = {
-        request: {
-          id: request.id,
-          letter_number: request.letter_number,
-          purpose: request.purpose,
-          start_date: request.start_date,
-          end_date: request.end_date,
-          location_usage: request.location_usage,
-          pic_name: request.pic_name,
-          pic_contact: request.pic_contact,
-          created_at: request.created_at,
-          borrower: {
-            full_name: request.borrower.full_name,
-            unit: request.borrower.unit,
-            phone: request.borrower.phone
-          },
-          request_items: request.request_items.map(item => ({
-            quantity: item.quantity,
-            items: {
-              name: item.items.name,
-              code: item.items.code,
-              description: item.items.description || ""
-            }
-          }))
-        },
-        headmasterName,
-        ownerName,
-        schoolName: "Darul Ma'arif",
-        schoolAddress: "Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu\nTelp: 082219699610 | Email: pontrendarulmaarif@gmail.com",
-        letterType,
-        logoUrl: '/logodm.png',
-        qrDataUrl: qrUrl || undefined,
-        verificationUrl: vUrl || undefined
-      };
-
-      await generatePDF(pdfData);
-      toast.success("Surat PDF berhasil diunduh");
-    } catch (error) {
-      console.error("Error downloading letter:", error);
-      toast.error("Gagal mengunduh surat");
-    }
+    const filename = `Surat_Peminjaman_${request.borrower.full_name.replace(/\s+/g, '_')}.pdf`;
+    await downloadPDF(request.letter_pdf_url, filename);
   };
 
   if (loading) {
@@ -677,118 +616,14 @@ export default function RequestDetail() {
         )}
       </div>
 
-      {/* Letter Preview Dialog */}
-      <Dialog open={showLetterPreview} onOpenChange={setShowLetterPreview}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Preview Surat Peminjaman</DialogTitle>
-            <DialogDescription>Format final A4 siap cetak.</DialogDescription>
-          </DialogHeader>
-          {request && (
-            <div className="space-y-4">
-              <div className="h-[600px] border rounded-lg overflow-hidden">
-                <PDFViewer style={{ width: '100%', height: '100%' }} showToolbar={false}>
-                  <BorrowLetter
-                    data={{
-                      request: {
-                        id: request.id,
-                        letter_number: request.letter_number,
-                        purpose: request.purpose,
-                        start_date: request.start_date,
-                        end_date: request.end_date,
-                        location_usage: request.location_usage,
-                        pic_name: request.pic_name,
-                        pic_contact: request.pic_contact,
-                        created_at: request.created_at,
-                        borrower: {
-                          full_name: request.borrower.full_name,
-                          unit: request.borrower.unit,
-                          phone: request.borrower.phone
-                        },
-                        request_items: request.request_items.map(item => ({
-                          quantity: item.quantity,
-                          items: {
-                            name: item.items.name,
-                            code: item.items.code,
-                            description: item.items.description || ''
-                          }
-                        }))
-                      },
-                      ownerName: request.owner_reviewer?.full_name || 'Pengelola Inventaris',
-                      headmasterName: request.letter_number ? (request.headmaster_approver?.full_name || 'Kepala Sekolah') : undefined,
-                      schoolName: 'Darul Ma\'arif',
-                      schoolAddress: 'Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu',
-                      letterType: request.letter_number ? 'official' : (request.headmaster_approver?.full_name ? 'official' : 'internal'),
-                      logoUrl: '/logodm.png',
-                      qrDataUrl: qrDataUrl || undefined,
-                      verificationUrl: verificationUrl || undefined
-                    }}
-                  />
-                </PDFViewer>
-              </div>
-              <div className="flex gap-4 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowLetterPreview(false)}
-                  className="bg-gray-50 hover:bg-gray-100 neu-button-raised hover:neu-button-pressed border-0"
-                >
-                  Tutup Preview
-                </Button>
-                <PDFDownloadLink
-                  document={
-                    <BorrowLetter
-                      data={{
-                        request: {
-                          id: request.id,
-                          letter_number: request.letter_number,
-                          purpose: request.purpose,
-                          start_date: request.start_date,
-                          end_date: request.end_date,
-                          location_usage: request.location_usage,
-                          pic_name: request.pic_name,
-                          pic_contact: request.pic_contact,
-                          created_at: request.created_at,
-                          borrower: {
-                            full_name: request.borrower.full_name,
-                            unit: request.borrower.unit,
-                            phone: request.borrower.phone
-                          },
-                          request_items: request.request_items.map(item => ({
-                            quantity: item.quantity,
-                            items: {
-                              name: item.items.name,
-                              code: item.items.code,
-                              description: item.items.description || ''
-                            }
-                          }))
-                        },
-                        ownerName: request.owner_reviewer?.full_name || 'Pengelola Inventaris',
-                        headmasterName: request.letter_number ? (request.headmaster_approver?.full_name || 'Kepala Sekolah') : undefined,
-                        schoolName: 'Darul Ma\'arif',
-                        schoolAddress: 'Jalan Raya Kaplongan No. 28, Kaplongan, Karangampel, Indramayu',
-                        letterType: request.letter_number ? 'official' : (request.headmaster_approver?.full_name ? 'official' : 'internal'),
-                        logoUrl: '/logodm.png',
-                        qrDataUrl: qrDataUrl || undefined,
-                        verificationUrl: verificationUrl || undefined
-                      }}
-                    />
-                  }
-                  fileName={`Surat_Peminjaman_${request.borrower?.full_name?.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`}
-                >
-                  {({ loading }) => (
-                    <Button
-                      disabled={loading}
-                      className="bg-green-600 hover:bg-green-700 text-white neu-button-raised hover:neu-button-pressed border-0"
-                    >
-                      {loading ? 'Mempersiapkan...' : 'Download PDF'}
-                    </Button>
-                  )}
-                </PDFDownloadLink>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Letter Preview Dialog - New Backend PDF */}
+      <PDFPreviewDialog
+        open={showLetterPreview}
+        onOpenChange={setShowLetterPreview}
+        pdfUrl={request?.letter_pdf_url || null}
+        title={`Surat Peminjaman - ${request?.borrower.full_name || ''}`}
+        isGenerating={isGeneratingPDF}
+      />
 
       <BottomNav />
     </div>

@@ -1,1 +1,4 @@
-project_id = "vuxntipzwabwdywsaptj"
+project_id = "fripjgpqthrjauwjlkzz"
+
+[functions.generate-borrow-letter]
+verify_jwt = true

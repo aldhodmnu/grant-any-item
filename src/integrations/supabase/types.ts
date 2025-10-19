@@ -28,7 +28,9 @@ export type Database = {
           headmaster_notes: string | null
           id: string
           letter_generated_at: string | null
+          letter_generated_pdf_at: string | null
           letter_number: string | null
+          letter_pdf_url: string | null
           letter_viewed_at: string | null
           location_usage: string | null
           notes: string | null
@@ -58,7 +60,9 @@ export type Database = {
           headmaster_notes?: string | null
           id?: string
           letter_generated_at?: string | null
+          letter_generated_pdf_at?: string | null
           letter_number?: string | null
+          letter_pdf_url?: string | null
           letter_viewed_at?: string | null
           location_usage?: string | null
           notes?: string | null
@@ -88,7 +92,9 @@ export type Database = {
           headmaster_notes?: string | null
           id?: string
           letter_generated_at?: string | null
+          letter_generated_pdf_at?: string | null
           letter_number?: string | null
+          letter_pdf_url?: string | null
           letter_viewed_at?: string | null
           location_usage?: string | null
           notes?: string | null
@@ -135,23 +141,18 @@ export type Database = {
           description: string | null
           id: string
           name: string
-          // Kolom department (nullable) ditambahkan oleh migrasi 20251009220000_add_department_to_categories.sql
-          // Mereferensikan departments.name (TEXT)
-          department: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
           name: string
-          department?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
           name?: string
-          department?: string | null
         }
         Relationships: []
       }
@@ -191,15 +192,11 @@ export type Database = {
           created_at: string
           department_id: string
           description: string | null
-          // Kolom baru hasil migrasi 20251009231000_add_damaged_lost_columns.sql
-          // Menyimpan jumlah unit rusak & hilang untuk akuntabilitas stok
-          damaged_quantity: number
           id: string
           image_url: string | null
           location: string | null
           name: string
           quantity: number
-          lost_quantity: number
           status: Database["public"]["Enums"]["item_status"]
           updated_at: string
         }
@@ -211,13 +208,11 @@ export type Database = {
           created_at?: string
           department_id: string
           description?: string | null
-          damaged_quantity?: number
           id?: string
           image_url?: string | null
           location?: string | null
           name: string
           quantity?: number
-          lost_quantity?: number
           status?: Database["public"]["Enums"]["item_status"]
           updated_at?: string
         }
@@ -229,13 +224,11 @@ export type Database = {
           created_at?: string
           department_id?: string
           description?: string | null
-          damaged_quantity?: number
           id?: string
           image_url?: string | null
           location?: string | null
           name?: string
           quantity?: number
-          lost_quantity?: number
           status?: Database["public"]["Enums"]["item_status"]
           updated_at?: string
         }
