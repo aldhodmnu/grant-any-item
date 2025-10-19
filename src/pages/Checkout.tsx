@@ -394,7 +394,7 @@ export default function Checkout() {
             {useOwnContact && userProfile && !userProfile.phone && (
               <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-xs leading-relaxed">
                 Nomor telepon Anda belum ada di profil. Silakan lengkapi di halaman Profil supaya form otomatis terisi di masa depan.
-                <Button type="button" variant="outline" size="xs" className="ml-2 h-6 px-2 text-xs" onClick={() => navigate('/profile')}>
+                <Button type="button" variant="outline" size="sm" className="ml-2 h-6 px-2 text-xs" onClick={() => navigate('/profile')}>
                   Buka Profil
                 </Button>
               </div>

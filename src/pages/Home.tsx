@@ -63,15 +63,16 @@ export default function Home() {
           if (rolesResult.data) setUserRoles(rolesResult.data.map(r => r.role));
         }
 
-        // Fetch stats
+        // Fetch stats - always fetch fresh data
         const [itemsCount, requestsCount, activeCount, departmentsCount] = await Promise.all([
-          supabase.from("items").select("*", { count: "exact", head: true }),
-          supabase.from("borrow_requests").select("*", { count: "exact", head: true }).eq("borrower_id", user.id),
-          supabase.from("borrow_requests").select("*", { count: "exact", head: true }).eq("status", "active"),
-          supabase.from("departments").select("*", { count: "exact", head: true })
+          supabase.from("items").select("id", { count: "exact", head: true }),
+          supabase.from("borrow_requests").select("id", { count: "exact", head: true }).eq("borrower_id", user.id),
+          supabase.from("borrow_requests").select("id", { count: "exact", head: true }).eq("status", "active"),
+          supabase.from("departments").select("id", { count: "exact", head: true })
         ]);
 
         if (isMounted) {
+          console.log('Stats loaded:', { itemsCount: itemsCount.count, requestsCount: requestsCount.count, activeCount: activeCount.count, departmentsCount: departmentsCount.count });
           setStats({
             totalItems: itemsCount.count || 0,
             myRequests: requestsCount.count || 0,
@@ -181,8 +182,7 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  // Depend on userRoles karena kita hitung pending role-based; gunakan guard agar tidak loop
-  }, [userRoles]);
+  }, []); // Run once on mount
 
 
 
