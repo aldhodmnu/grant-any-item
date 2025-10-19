@@ -5,6 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/hooks/useCart";
 import { useUserRole } from "@/hooks/useUserRole";
 
+// Routes where bottom nav should be hidden (public routes, auth, etc.)
+const HIDDEN_ROUTES = ['/landing', '/auth', '/verify', '/realtime', '/public'];
+
+const shouldShowBottomNav = (pathname: string) => {
+  return !HIDDEN_ROUTES.some(route => pathname.startsWith(route));
+};
+
 export const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,8 +80,13 @@ export const BottomNav = () => {
     return [...base, ...manage, ...tail];
   }, [totalItems, unreadLetters, isOwnerOrAdmin]);
 
+  // Hide on public routes
+  if (!shouldShowBottomNav(location.pathname)) {
+    return null;
+  }
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom transition-transform duration-300 ease-out">
       {/* Modern floating glass container */}
       <div className="mx-4 mb-4">
         <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-black/10 neu-raised-heavy overflow-hidden">

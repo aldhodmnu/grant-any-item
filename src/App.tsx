@@ -27,6 +27,7 @@ import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import VerifyLetter from "./pages/VerifyLetter";
 import PublicRequestDetail from "./pages/PublicRequestDetail";
+import { BottomNav } from "./components/layout/BottomNav";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,9 @@ const App = () => {
           
           <Route path="*" element={<NotFound />} />
         </Routes>
+        
+        {/* Persistent Bottom Navigation - always visible on protected routes */}
+        <BottomNav />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
