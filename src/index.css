@@ -146,12 +146,6 @@ All colors MUST be HSL.
     @apply px-4 mx-auto max-w-7xl;
   }
   
-  /* Safe area paddings for PWA (iOS notch, Android gesture bar) */
-  .safe-area-top { padding-top: env(safe-area-inset-top); }
-  .safe-area-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
-  .safe-area-left { padding-left: env(safe-area-inset-left); }
-  .safe-area-right { padding-right: env(safe-area-inset-right); }
-  
   /* Fix bottom nav overlap */
   .main-content {
     @apply pb-20 min-h-screen;
@@ -220,5 +214,22 @@ All colors MUST be HSL.
 @layer base {
   .page-container {
     @apply min-h-screen pb-20;
+  }
+  
+  /* PWA safe areas untuk mobile */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
   }
 }

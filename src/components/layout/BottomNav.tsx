@@ -5,13 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/hooks/useCart";
 import { useUserRole } from "@/hooks/useUserRole";
 
-// Routes where bottom nav should be hidden (public routes, auth, etc.)
-const HIDDEN_ROUTES = ['/landing', '/auth', '/verify', '/realtime', '/public'];
-
-const shouldShowBottomNav = (pathname: string) => {
-  return !HIDDEN_ROUTES.some(route => pathname.startsWith(route));
-};
-
 export const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -67,16 +60,12 @@ export const BottomNav = () => {
   const isOwnerOrAdmin = userRoles.includes("owner") || userRoles.includes("admin");
 
   const tabs = useMemo(() => {
-    const canManage = isOwnerOrAdmin;
     const base = [
       { id: 'home', label: 'Home', icon: Home, path: '/', badge: null },
       { id: 'departments', label: 'Departments', icon: Building2, path: '/departments', badge: null },
       { id: 'cart', label: 'Cart', icon: ShoppingCart, path: '/cart', badge: totalItems > 0 ? totalItems : null },
     ];
-    // SELALU render slot 'Kelola' untuk stabilitas layout; disable jika tidak punya role
-    const manage = [
-      { id: 'manage', label: 'Kelola', icon: Package, path: '/manage-inventory', badge: null, disabled: !canManage }
-    ];
+    const manage = isOwnerOrAdmin ? [{ id: 'manage', label: 'Kelola', icon: Package, path: '/manage-inventory', badge: null }] : [];
     const tail = [
       { id: 'orders', label: 'Orders', icon: FileText, path: '/orders', badge: unreadLetters > 0 ? unreadLetters : null },
       { id: 'profile', label: 'Profile', icon: User, path: '/profile', badge: null }
@@ -84,13 +73,8 @@ export const BottomNav = () => {
     return [...base, ...manage, ...tail];
   }, [totalItems, unreadLetters, isOwnerOrAdmin]);
 
-  // Hide on public routes
-  if (!shouldShowBottomNav(location.pathname)) {
-    return null;
-  }
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom transition-transform duration-300 ease-out">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
       {/* Modern floating glass container */}
       <div className="mx-4 mb-4">
         <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-black/10 neu-raised-heavy overflow-hidden">
@@ -103,64 +87,52 @@ export const BottomNav = () => {
               const isTabActive = isActive(tab.path);
               const Icon = tab.icon;
               
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      // Prevent navigation when disabled
-                      // @ts-ignore - optional property
-                      if ((tab as any).disabled) return;
-                      navigate(tab.path);
-                    }}
-                    // @ts-ignore - optional property
-                    disabled={(tab as any).disabled}
-                    aria-disabled={Boolean((tab as any).disabled)}
-                    className={`relative flex flex-col items-center justify-center min-w-0 flex-1 py-2 px-1 group transition-all duration-300 ${
-                      // @ts-ignore
-                      (tab as any).disabled ? 'opacity-60 pointer-events-none' : ''
-                    }`}
-                  >
-                    {/* Active indicator background */}
-                    {/* Do not show active state for disabled tabs */}
-                    {isTabActive && !(tab as any).disabled && (
-                      <div className="absolute inset-0 bg-primary/10 rounded-xl neu-inset animate-in fade-in-50 zoom-in-95" />
-                    )}
-                    
-                    {/* Icon container with neu effect */}
-                    <div className={`relative p-2 rounded-xl transition-all duration-300 group-active:scale-95 ${
-                      isTabActive && !(tab as any).disabled
-                        ? "neu-raised bg-white shadow-inner"
-                        : "group-hover:neu-flat group-hover:bg-white/50"
-                    }`}>
-                      <Icon className={`h-5 w-5 transition-colors duration-300 ${
-                        isTabActive && !(tab as any).disabled
-                          ? "text-primary"
-                          : "text-gray-500 group-hover:text-gray-700"
-                      }`} />
-                      
-                      {/* Badge with neu styling */}
-                      {tab.badge && (
-                        <div className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-red-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg neu-raised border border-white/30">
-                          {tab.badge > 99 ? '99+' : tab.badge}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Label with better typography */}
-                    <span className={`text-[10px] mt-1 font-semibold tracking-tight transition-colors duration-300 ${
-                      isTabActive && !(tab as any).disabled
-                        ? "text-primary"
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => navigate(tab.path)}
+                  className="relative flex flex-col items-center justify-center min-w-0 flex-1 py-2 px-1 group transition-all duration-300"
+                >
+                  {/* Active indicator background */}
+                  {isTabActive && (
+                    <div className="absolute inset-0 bg-primary/10 rounded-xl neu-inset animate-in fade-in-50 zoom-in-95" />
+                  )}
+                  
+                  {/* Icon container with neu effect */}
+                  <div className={`relative p-2 rounded-xl transition-all duration-300 group-active:scale-95 ${
+                    isTabActive 
+                      ? "neu-raised bg-white shadow-inner" 
+                      : "group-hover:neu-flat group-hover:bg-white/50"
+                  }`}>
+                    <Icon className={`h-5 w-5 transition-colors duration-300 ${
+                      isTabActive 
+                        ? "text-primary" 
                         : "text-gray-500 group-hover:text-gray-700"
-                    }`}>
-                      {tab.label}
-                    </span>
+                    }`} />
                     
-                    {/* Active dot indicator */}
-                    {isTabActive && !(tab as any).disabled && (
-                      <div className="absolute -bottom-1 w-1 h-1 bg-primary rounded-full shadow-sm animate-in fade-in-50 slide-in-from-bottom-2" />
+                    {/* Badge with neu styling */}
+                    {tab.badge && (
+                      <div className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-red-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg neu-raised border border-white/30">
+                        {tab.badge > 99 ? '99+' : tab.badge}
+                      </div>
                     )}
-                  </button>
-                );
+                  </div>
+                  
+                  {/* Label with better typography */}
+                  <span className={`text-[10px] mt-1 font-semibold tracking-tight transition-colors duration-300 ${
+                    isTabActive 
+                      ? "text-primary" 
+                      : "text-gray-500 group-hover:text-gray-700"
+                  }`}>
+                    {tab.label}
+                  </span>
+                  
+                  {/* Active dot indicator */}
+                  {isTabActive && (
+                    <div className="absolute -bottom-1 w-1 h-1 bg-primary rounded-full shadow-sm animate-in fade-in-50 slide-in-from-bottom-2" />
+                  )}
+                </button>
+              );
             })}
           </div>
         </div>
