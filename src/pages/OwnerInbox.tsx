@@ -258,6 +258,8 @@ export default function OwnerInbox() {
       setIsGeneratingPDF(false);
     }
   };
+
+  const handleForwardToHeadmaster = async (requestId: string) => {
     setProcessingId(requestId);
     
     try {
@@ -571,7 +573,7 @@ export default function OwnerInbox() {
                         </Button>
                         
                         <Button
-                          onClick={() => handleSendToHeadmaster(request.id)}
+                          onClick={() => handleForwardToHeadmaster(request.id)}
                           disabled={processingId === request.id}
                           variant="outline"
                           className="w-full bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:border-blue-300 border-0 neu-button-raised hover:neu-button-pressed text-left"
