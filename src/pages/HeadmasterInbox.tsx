@@ -105,7 +105,7 @@ export default function HeadmasterInbox() {
 
   // Helper untuk adapt struktur ke kebutuhan BorrowLetter (minimal fields)
   interface BorrowLetterRequestAdapted {
-    id: string; purpose: string; start_date: string; end_date: string; location_usage?: string; pic_name: string; pic_contact: string; created_at?: string; letter_number?: string;
+    id: string; purpose: string; start_date: string; end_date: string; location_usage?: string; pic_name: string; pic_contact: string; created_at?: string; letter_number?: string; headmaster_approved_at?: string; letter_generated_at?: string;
     borrower: { full_name: string; unit: string; phone?: string };
     request_items: { quantity: number; items: { name: string; code?: string; description?: string } }[];
   }
@@ -113,6 +113,8 @@ export default function HeadmasterInbox() {
     if (!r) return undefined;
     const letter_number = (r as unknown as { letter_number?: string }).letter_number;
     const created_at = (r as unknown as { created_at?: string }).created_at;
+    const headmaster_approved_at = (r as unknown as { headmaster_approved_at?: string }).headmaster_approved_at;
+    const letter_generated_at = (r as unknown as { letter_generated_at?: string }).letter_generated_at;
     return {
       id: r.id,
       letter_number,
@@ -123,6 +125,8 @@ export default function HeadmasterInbox() {
       pic_name: r.pic_name,
       pic_contact: r.pic_contact,
       created_at,
+      headmaster_approved_at,
+      letter_generated_at,
       borrower: r.borrower || { full_name: '-', unit: '-', phone: '' },
       request_items: (r.request_items || []).map(ri => ({
         quantity: ri.quantity,

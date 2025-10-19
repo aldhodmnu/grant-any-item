@@ -58,6 +58,8 @@ interface BorrowLetterProps {
       pic_name: string;
       pic_contact: string;
       created_at?: string;
+      headmaster_approved_at?: string;
+      letter_generated_at?: string;
       borrower: {
         full_name: string;
         unit: string;
@@ -90,11 +92,19 @@ interface BorrowLetterProps {
 }
 
 export const BorrowLetter: React.FC<BorrowLetterProps> = ({ data }) => {
-  const currentDate = new Date().toLocaleDateString('id-ID', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  // Gunakan tanggal surat dari database (letter_generated_at, headmaster_approved_at, atau created_at)
+  const letterDateSource = data.request.letter_generated_at || data.request.headmaster_approved_at || data.request.created_at;
+  const currentDate = letterDateSource 
+    ? new Date(letterDateSource).toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    : new Date().toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
   // Fallback logo prioritas: prop -> png lokal -> webp (legacy) -> eksternal -> base64 minimal placeholder
   const BASE64_PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAMAAABhv6HkAAAABlBMVEX////MzMznlBVVAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAIUlEQVQImQXGwQkAIAwAsVf//zcuEQQJpWmiyQF1jA0w4yJ4eABzGAg3g5Xw7wAAAABJRU5ErkJggg==';
   const fallbackLogo = [
