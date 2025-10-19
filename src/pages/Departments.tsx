@@ -117,19 +117,19 @@ export default function Departments() {
   }, []);
 
   useEffect(() => {
-    fetchUserContext();
+    const initialize = async () => {
+      await fetchUserContext();
+      await fetchDepartments();
+    };
+    initialize();
   }, []);
-
-  // Fetch departments setelah userContext ready
-  useEffect(() => {
-    if (!loading) {
-      fetchDepartments();
-    }
-  }, [userDepartment, ownerDepartments]);
 
   const fetchUserContext = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const [profileRes, rolesRes] = await Promise.all([
       supabase.from("profiles").select("unit").eq("id", user.id).single(),
@@ -156,17 +156,30 @@ export default function Departments() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pb-20">
-        <div className="container-mobile pt-8 px-6">
-          <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="min-h-screen bg-background pb-20 animate-fade-in">
+        <div className="bg-gradient-to-b from-primary/5 to-background">
+          <div className="container-mobile pt-8 pb-6 px-6">
             <div className="text-center space-y-3">
-              <div className="animate-spin w-8 h-8 border-3 border-primary border-t-transparent rounded-full mx-auto"></div>
-              <p className="text-muted-foreground">Memuat departemen...</p>
-              {error && (
-                <p className="text-xs text-red-500 mt-2">{error}</p>
-              )}
+              <div className="h-8 w-48 bg-muted animate-pulse rounded-lg mx-auto"></div>
+              <div className="h-4 w-64 bg-muted animate-pulse rounded mx-auto"></div>
             </div>
           </div>
+        </div>
+        <div className="container-mobile py-6 px-5 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="neu-flat mx-1 animate-pulse">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-11 h-11 bg-muted rounded-2xl"></div>
+                  <div className="flex-1 space-y-3">
+                    <div className="h-5 w-32 bg-muted rounded"></div>
+                    <div className="h-4 w-full bg-muted rounded"></div>
+                    <div className="h-3 w-24 bg-muted rounded"></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
         <BottomNav />
       </div>
@@ -174,7 +187,7 @@ export default function Departments() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 animate-fade-in">
       {/* Header with better spacing */}
       <div className="bg-gradient-to-b from-primary/5 to-background">
         <div className="container-mobile pt-8 pb-6 px-6">
