@@ -84,27 +84,15 @@ export default function ManageInventory() {
   // Effect untuk mengambil user role hanya sekali
   useEffect(() => {
     const checkUserAccess = () => {
-      // Simpan role informasi
       const owner = hasRole('owner');
       const admin = hasRole('admin');
-      const isOwnerOnlyValue = owner && !admin;
-      setIsOwnerOnly(isOwnerOnlyValue);
-      
-      // Simpan departemen user
-      const userDeptName = getUserDepartment();
-      setUserDepartment(userDeptName);
-      
-      // Check akses manajemen
-      const canManageValue = canManageInventory();
-      setCanManage(canManageValue);
+      setIsOwnerOnly(owner && !admin);
+      setUserDepartment(getUserDepartment());
+      setCanManage(canManageInventory());
     };
     
-    // Jalankan sekali dan tidak akan dijalankan lagi meskipun dependencies berubah
-    // karena kita hanya perlu nilai awalnya
-    if (!userDepartment && !isOwnerOnly) {
-      checkUserAccess();
-    }
-  }, [hasRole, getUserDepartment, canManageInventory, userDepartment, isOwnerOnly]);
+    checkUserAccess();
+  }, []); // Run once only
 
   // Fetch batch pertama + categories
   useEffect(() => {

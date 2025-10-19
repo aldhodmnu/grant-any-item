@@ -114,16 +114,18 @@ export default function Departments() {
     } finally {
       setLoading(false);
     }
-  }, [userDepartment, ownerDepartments]);
+  }, []);
 
   useEffect(() => {
     fetchUserContext();
   }, []);
 
-  // Selalu fetch daftar departemen meskipun userDepartment null (admin/headmaster/borrower tanpa unit)
+  // Fetch departments setelah userContext ready
   useEffect(() => {
-    fetchDepartments();
-  }, [userDepartment, ownerDepartments, fetchDepartments]);
+    if (!loading) {
+      fetchDepartments();
+    }
+  }, [userDepartment, ownerDepartments]);
 
   const fetchUserContext = async () => {
     const { data: { user } } = await supabase.auth.getUser();
