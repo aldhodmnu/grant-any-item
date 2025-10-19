@@ -1,8 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, Loader2, ExternalLink } from "lucide-react";
+import { Download, Share2, Loader2 } from "lucide-react";
 import { downloadPDF, sharePDF } from "@/lib/pdfService";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 interface PDFPreviewDialogProps {
@@ -46,11 +46,14 @@ export function PDFPreviewDialog({
     setSharing(false);
   };
 
-  const handleOpenInNewTab = () => {
-    if (pdfUrl) {
-      window.open(pdfUrl, '_blank');
-    }
-  };
+  const iframeSrc = useMemo(() => {
+    if (!pdfUrl) return '';
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+    return isAndroid && isPWA
+      ? `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(pdfUrl)}`
+      : pdfUrl;
+  }, [pdfUrl]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -70,23 +73,14 @@ export function PDFPreviewDialog({
               {/* PDF Preview - Mobile optimized */}
               <div className="flex-1 bg-muted rounded-lg overflow-hidden">
                 <iframe
-                  src={pdfUrl}
+                  src={iframeSrc}
                   className="w-full h-full border-0"
                   title="PDF Preview"
                 />
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <Button
-                  onClick={handleOpenInNewTab}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Buka Tab Baru
-                </Button>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button
                   onClick={handleDownload}
                   disabled={downloading}
