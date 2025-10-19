@@ -439,22 +439,22 @@ export default function RequestDetail() {
                     <FileText className="h-6 w-6 text-green-600" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     onClick={handlePreviewLetter}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-12 neu-button-raised hover:neu-button-pressed border-0"
+                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-12 neu-button shadow-lg hover:shadow-xl transition-all duration-300"
                     size="lg"
                   >
                     <Eye className="h-5 w-5 mr-2" />
-                    Preview Surat
+                    <span className="font-semibold">Preview Surat</span>
                   </Button>
                   <Button
                     onClick={handleDownloadLetter}
-                    className="bg-green-600 hover:bg-green-700 text-white rounded-xl h-12 neu-button-raised hover:neu-button-pressed border-0"
+                    className="flex-1 bg-success hover:bg-success/90 text-success-foreground rounded-xl h-12 neu-button shadow-lg hover:shadow-xl transition-all duration-300"
                     size="lg"
                   >
                     <Download className="h-5 w-5 mr-2" />
-                    Download PDF
+                    <span className="font-semibold">Download PDF</span>
                   </Button>
                 </div>
                 <p className="text-xs text-green-700 mt-3 text-center">
@@ -479,22 +479,22 @@ export default function RequestDetail() {
                     <FileText className="h-6 w-6 text-blue-600" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     onClick={handlePreviewLetter}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 neu-button-raised hover:neu-button-pressed border-0"
+                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-12 neu-button shadow-lg hover:shadow-xl transition-all duration-300"
                     size="lg"
                   >
                     <Eye className="h-5 w-5 mr-2" />
-                    Preview Surat
+                    <span className="font-semibold">Preview Surat</span>
                   </Button>
                   <Button
                     onClick={handleDownloadLetter}
-                    className="bg-green-600 hover:bg-green-700 text-white rounded-xl h-11 neu-button-raised hover:neu-button-pressed border-0"
+                    className="flex-1 bg-success hover:bg-success/90 text-success-foreground rounded-xl h-12 neu-button shadow-lg hover:shadow-xl transition-all duration-300"
                     size="lg"
                   >
                     <Download className="h-5 w-5 mr-2" />
-                    Download PDF
+                    <span className="font-semibold">Download PDF</span>
                   </Button>
                 </div>
                 <p className="text-xs text-blue-700 mt-3 text-center">
