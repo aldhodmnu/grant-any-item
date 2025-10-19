@@ -196,15 +196,14 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 safe-area-bottom">
+    <div className="min-h-screen bg-background pb-16">
       {/* Header */}
-      <div className="bg-gradient-to-b from-primary/5 to-background safe-area-top">
-        <div className="container-mobile pt-8 pb-8 px-4">
-          <div className="text-center space-y-5 mt-2">
+      <div className="bg-gradient-to-b from-primary/5 to-background">
+        <div className="container-mobile pt-6 pb-6">
+          <div className="text-center  pt-10       space-y-4  ">
             {/* Avatar */}
-            <div className="neu-raised w-24 h-24 rounded-full flex items-center justify-center mx-auto bg-primary/10">
-              <User className="h-12 w-12 text-primary" />
-              <User className="h-12 w-12 text-primary" />
+            <div className="neu-raised w-20          h-20 rounded-full flex items-center justify-center mx-auto bg-primary/10">
+              <User className="h-10 w-10 text-primary" />
             </div>
             
             {/* User Info */}
@@ -236,7 +235,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="px-4 py-8 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 pb-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6">
         {/* Enhanced Profile Details */}
         <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm neu-flat hover:neu-raised transition-all duration-300">
           <CardHeader className="pb-4">
